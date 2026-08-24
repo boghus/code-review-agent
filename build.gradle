@@ -1,0 +1,25 @@
+plugins {
+    id 'groovy'
+    id 'application'
+}
+
+group = 'com.boghus'
+version = '0.1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation localGroovy()
+    testImplementation platform('org.spockframework:spock-bom:2.4-M4')
+    testImplementation 'org.spockframework:spock-core'
+}
+
+application {
+    mainClass = 'com.boghus.codereview.action.Main'
+}
+
+test {
+    useJUnitPlatform()
+}

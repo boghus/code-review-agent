@@ -1,0 +1,24 @@
+name: Code Review Agent
+
+description: AI-powered code review agent for GitHub Pull Requests, built with Groovy.
+
+inputs:
+  gemini-api-key:
+    description: Gemini API key used by the review engine.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v4
+    - name: Run Code Review Agent
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+      run: gradle -p "${{ github.action_path }}" run
