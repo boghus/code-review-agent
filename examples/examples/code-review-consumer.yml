@@ -1,0 +1,32 @@
+name: Code Review Agent by boghus
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: code-review-agent-by-boghus-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Code Review Agent by boghus
+        uses: boghus/code-review-agent@v1
+        with:
+          api-key: ${{ secrets.MY_AI_KEY }}
+          model: gemini-3.6-flash
+          provider: gemini
+          rules-path: .github/code_review_rules.md

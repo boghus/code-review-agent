@@ -1,0 +1,7 @@
+.gradle/
+build/
+*.diff
+cra-review.md
+.idea/
+*.iml
+.DS_Store
