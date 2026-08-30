@@ -15,6 +15,8 @@ class ActionInputsTest {
         assertThat(inputs.rulesPath).isEqualTo(ActionInputs.DEFAULT_RULES_PATH)
         assertThat(inputs.diffPath).isEqualTo(ActionInputs.DEFAULT_DIFF_PATH)
         assertThat(inputs.outputPath).isEqualTo(ActionInputs.DEFAULT_OUTPUT_PATH)
+        assertThat(inputs.actionRef).isNull()
+        assertThat(inputs.actionSha).isNull()
         assertThat(inputs.maxDiffBytes).isEqualTo(ActionInputs.DEFAULT_MAX_DIFF_BYTES)
         assertThat(inputs.maxDiffLines).isEqualTo(ActionInputs.DEFAULT_MAX_DIFF_LINES)
     }
@@ -28,6 +30,8 @@ class ActionInputsTest {
             CRA_RULES_PATH    : '/tmp/rules.md',
             CRA_DIFF_PATH     : '/tmp/diff',
             CRA_OUTPUT_PATH   : '/tmp/out.md',
+            CRA_ACTION_REF    : 'v1.0.0-rc',
+            CRA_ACTION_SHA    : 'abc123456789',
             CRA_MAX_DIFF_BYTES: '500000',
             CRA_MAX_DIFF_LINES: '8000'
         ]
@@ -39,6 +43,8 @@ class ActionInputsTest {
         assertThat(inputs.rulesPath).isEqualTo('/tmp/rules.md')
         assertThat(inputs.diffPath).isEqualTo('/tmp/diff')
         assertThat(inputs.outputPath).isEqualTo('/tmp/out.md')
+        assertThat(inputs.actionRef).isEqualTo('v1.0.0-rc')
+        assertThat(inputs.actionSha).isEqualTo('abc123456789')
         assertThat(inputs.maxDiffBytes).isEqualTo(500_000)
         assertThat(inputs.maxDiffLines).isEqualTo(8_000)
     }
