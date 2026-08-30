@@ -28,7 +28,7 @@ class CodeReview {
 
     static void main(String[] args) {
         ActionInputs inputs = ActionInputs.fromEnv()
-        ReviewReportWriter writer = new ReviewReportWriter()
+        ReviewReportWriter writer = new ReviewReportWriter(inputs.actionRef, inputs.actionSha)
 
         if (!inputs.apiKey?.trim()) {
             writer.writeMisconfigured(inputs.outputPath,
