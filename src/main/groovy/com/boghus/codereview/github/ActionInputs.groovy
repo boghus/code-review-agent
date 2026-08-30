@@ -27,6 +27,8 @@ class ActionInputs {
     String rulesPath
     String diffPath
     String outputPath
+    String actionRef
+    String actionSha
     int maxDiffBytes
     int maxDiffLines
 
@@ -38,6 +40,8 @@ class ActionInputs {
         inputs.rulesPath = env.CRA_RULES_PATH ?: DEFAULT_RULES_PATH
         inputs.diffPath = env.CRA_DIFF_PATH ?: DEFAULT_DIFF_PATH
         inputs.outputPath = env.CRA_OUTPUT_PATH ?: DEFAULT_OUTPUT_PATH
+        inputs.actionRef = env.CRA_ACTION_REF
+        inputs.actionSha = env.CRA_ACTION_SHA
         inputs.maxDiffBytes = parsePositiveInt(env.CRA_MAX_DIFF_BYTES, DEFAULT_MAX_DIFF_BYTES)
         inputs.maxDiffLines = parsePositiveInt(env.CRA_MAX_DIFF_LINES, DEFAULT_MAX_DIFF_LINES)
         return inputs
