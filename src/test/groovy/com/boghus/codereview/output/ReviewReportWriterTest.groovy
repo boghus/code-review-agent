@@ -61,6 +61,40 @@ class ReviewReportWriterTest {
     }
 
     @Test
+    void 'includes AI generated review disclaimer'() {
+        File file = File.createTempFile('cra-report-', '.md')
+        file.deleteOnExit()
+
+        writer.write(file.absolutePath, '## body')
+
+        assertThat(file.text)
+            .contains('⚠️ **AI-generated review:**')
+            .contains('false positives, false negatives, or incorrect recommendations')
+            .contains('Please validate the findings before making changes.')
+    }
+
+    @Test
+    void 'disclaimer is present on all report types'() {
+        File f1 = File.createTempFile('cra-', '.md'); f1.deleteOnExit()
+        File f2 = File.createTempFile('cra-', '.md'); f2.deleteOnExit()
+        File f3 = File.createTempFile('cra-', '.md'); f3.deleteOnExit()
+        File f4 = File.createTempFile('cra-', '.md'); f4.deleteOnExit()
+        File f5 = File.createTempFile('cra-', '.md'); f5.deleteOnExit()
+
+        writer.write(f1.absolutePath, 'x')
+        writer.writeEmpty(f2.absolutePath)
+        writer.writeFailure(f3.absolutePath, 'x')
+        writer.writeMisconfigured(f4.absolutePath, 'x')
+        writer.writeTooLarge(f5.absolutePath, 'x', 1, 1, 1, 1)
+
+        [f1, f2, f3, f4, f5].each { File f ->
+            assertThat(f.text)
+                .as('body for %s', f.name)
+                .contains('⚠️ **AI-generated review:**')
+        }
+    }
+
+    @Test
     void 'new marker is code-review-agent-by-boghus'() {
         assertThat(ReviewReportWriter.COMMENT_MARKER).isEqualTo('<!-- code-review-agent-by-boghus -->')
     }
@@ -106,7 +140,6 @@ class ReviewReportWriterTest {
         file.deleteOnExit()
 
         writer.writeEmpty(file.absolutePath)
-
         assertThat(file.text)
             .contains(ReviewReportWriter.COMMENT_MARKER)
             .contains('🤖 Code Review Agent by boghus')
@@ -132,9 +165,6 @@ class ReviewReportWriterTest {
 
     @Test
     void 'no body ever carries the legacy marker'() {
-        // Defence-in-depth: assert across every writer entry point that the
-        // legacy v1 marker is never emitted. The legacy marker exists only
-        // so the action's find-comment step can locate v1 comments.
         File f1 = File.createTempFile('cra-', '.md'); f1.deleteOnExit()
         File f2 = File.createTempFile('cra-', '.md'); f2.deleteOnExit()
         File f3 = File.createTempFile('cra-', '.md'); f3.deleteOnExit()
