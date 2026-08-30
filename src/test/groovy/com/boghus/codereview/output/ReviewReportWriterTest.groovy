@@ -23,6 +23,44 @@ class ReviewReportWriterTest {
     }
 
     @Test
+    void 'writes action ref and commit sha when metadata is available'() {
+        File file = File.createTempFile('cra-report-', '.md')
+        file.deleteOnExit()
+
+        new ReviewReportWriter('v1.0.0-rc', 'abc123456789').write(file.absolutePath, '## body')
+
+        assertThat(file.text)
+            .contains('Version: v1.0.0-rc')
+            .contains('Commit: abc123456789')
+            .contains('\n---\n🤖 Code Review Agent\nVersion: v1.0.0-rc\nCommit: abc123456789\n')
+    }
+
+    @Test
+    void 'supports a commit sha as action ref'() {
+        File file = File.createTempFile('cra-report-', '.md')
+        file.deleteOnExit()
+
+        new ReviewReportWriter('f00c83797e0a2ba46be11d2fcaf6e389247823cc', 'f00c83797e0a2ba46be11d2fcaf6e389247823cc')
+            .write(file.absolutePath, '## body')
+
+        assertThat(file.text)
+            .contains('Version: f00c83797e0a2ba46be11d2fcaf6e389247823cc')
+            .contains('Commit: f00c83797e0a2ba46be11d2fcaf6e389247823cc')
+    }
+
+    @Test
+    void 'does not add version metadata when writer is used outside GitHub Actions'() {
+        File file = File.createTempFile('cra-report-', '.md')
+        file.deleteOnExit()
+
+        writer.write(file.absolutePath, '## body')
+
+        assertThat(file.text)
+            .doesNotContain('Version:')
+            .doesNotContain('Commit:')
+    }
+
+    @Test
     void 'new marker is code-review-agent-by-boghus'() {
         assertThat(ReviewReportWriter.COMMENT_MARKER).isEqualTo('<!-- code-review-agent-by-boghus -->')
     }
