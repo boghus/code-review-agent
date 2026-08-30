@@ -36,8 +36,22 @@ class ReviewReportWriter {
     /** Legacy v1 marker. Accepted as a search key during the v1→v2 migration window. */
     static final String LEGACY_MARKER = '<!-- code-review-agent -->'
 
+    private final String actionRef
+    private final String actionSha
+
+    ReviewReportWriter() {
+        this(null, null)
+    }
+
+    ReviewReportWriter(String actionRef, String actionSha) {
+        this.actionRef = actionRef?.trim()
+        this.actionSha = actionSha?.trim()
+    }
+
     void write(String outputPath, String body) {
-        new File(outputPath).write("${COMMENT_MARKER}\n${body}\n", 'UTF-8')
+        String version = actionRef ? "\n---\n🤖 Code Review Agent\nVersion: ${actionRef}\n" : ''
+        String commit = actionSha ? "Commit: ${actionSha}\n" : ''
+        new File(outputPath).write("${COMMENT_MARKER}\n${body}\n${version}${commit}", 'UTF-8')
     }
 
     void writeEmpty(String outputPath) {
