@@ -172,6 +172,8 @@ runs:
         CRA_RULES_PATH: ${{ steps.load-rules.outputs.rules-path }}
         CRA_DIFF_PATH: ${{ steps.resolve-paths.outputs.diff-path }}
         CRA_OUTPUT_PATH: ${{ steps.resolve-paths.outputs.output-path }}
+        CRA_ACTION_REF: ${{ github.action_ref }}
+        CRA_ACTION_SHA: ${{ github.action_sha }}
         CRA_MAX_DIFF_BYTES: ${{ inputs.max-diff-bytes }}
         CRA_MAX_DIFF_LINES: ${{ inputs.max-diff-lines }}
       run: gradle -p "$GITHUB_ACTION_PATH" run --no-daemon --quiet
