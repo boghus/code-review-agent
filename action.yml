@@ -1,0 +1,198 @@
+name: 'Code Review Agent by boghus'
+description: 'AI-powered Pull Request reviewer. Posts a single, idempotent review comment. Provider-agnostic (Gemini first).'
+author: 'boghus'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  api-key:
+    description: 'API key for the AI provider. Map any repository secret to this input.'
+    required: true
+  model:
+    description: 'Model identifier passed to the AI provider (e.g. gemini-2.5-flash).'
+    required: false
+    default: 'gemini-2.5-flash'
+  provider:
+    description: 'AI provider implementation. Currently only "gemini" is supported.'
+    required: false
+    default: 'gemini'
+  rules-path:
+    description: 'Path to the markdown file containing repository-specific review rules.'
+    required: false
+    default: '.github/code_review_rules.md'
+  diff-path:
+    description: 'Path where the PR diff is written before review.'
+    required: false
+    default: 'cra-pr.diff'
+  output-path:
+    description: 'Path where the generated review is written before posting.'
+    required: false
+    default: 'cra-review.md'
+  github-token:
+    description: 'GitHub token used to post the comment. Defaults to GITHUB_TOKEN.'
+    required: false
+    default: ${{ github.token }}
+  max-diff-bytes:
+    description: 'Skip the review with a warning when the diff exceeds this many bytes. Default 200000.'
+    required: false
+    default: '200000'
+  max-diff-lines:
+    description: 'Skip the review with a warning when the diff exceeds this many lines. Default 4000.'
+    required: false
+    default: '4000'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up JDK 25
+      uses: actions/setup-java@v5
+      with:
+        distribution: temurin
+        java-version: '25'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Checkout PR head
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
+
+    - name: Resolve path inputs
+      id: resolve-paths
+      shell: bash
+      env:
+        WORKSPACE: ${{ github.workspace }}
+        DIFF_RAW: ${{ inputs.diff-path }}
+        OUTPUT_RAW: ${{ inputs.output-path }}
+      run: |
+        resolve_runner() {
+          local raw="$1"
+          if [[ "$raw" == /* ]]; then
+            echo "$raw"
+          else
+            echo "$WORKSPACE/$raw"
+          fi
+        }
+        # rules-path is intentionally NOT resolved against the workspace —
+        # the trusted rules are materialised into a runner-controlled temp
+        # directory by the next step, so the consumer's rules-path value
+        # never becomes a destination on a filesystem the PR can manipulate.
+        if [[ "${{ inputs.rules-path }}" == /* ]]; then
+          echo "::error::rules-path must be a path inside the repository, not an absolute filesystem path. Got: ${{ inputs.rules-path }}" >&2
+          exit 1
+        fi
+        {
+          echo "diff-path=$(resolve_runner "$DIFF_RAW")"
+          echo "output-path=$(resolve_runner "$OUTPUT_RAW")"
+          echo "rules-relative=${{ inputs.rules-path }}"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Read repository rules from the base ref
+      id: load-rules
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        RULES_RELATIVE: ${{ steps.resolve-paths.outputs.rules-relative }}
+      run: |
+        # Security-critical: the repository rules file is presented to the
+        # model as TRUSTED instructions. We therefore read it from the PR
+        # base ref and materialise it into a runner-controlled temp
+        # directory (NOT into the workspace the PR controls).
+        #
+        # The trust boundary is:
+        #
+        #     BASE_SHA (trusted git tree)
+        #          │
+        #          ├── git ls-tree   → validate entry type (blob)
+        #          ├── git show      → read raw bytes
+        #          └── write to /tmp file created by mktemp
+        #                              │
+        #                              ▼
+        #                       Gradle / orchestrator
+        #
+        # The PR-controlled workspace is never the destination of this
+        # write. Even if the PR pre-creates a symlink at the same path
+        # under the workspace, our output lives elsewhere and the
+        # orchestrator reads only what we just wrote.
+        #
+        # Defences, in order:
+        #   1. Reject rules-path containing '..' or starting with '-'.
+        #   2. Verify the entry is a regular blob in the base tree
+        #      (not a symlink, not a submodule, not a directory).
+        #   3. Materialise into a freshly-created mktemp file under
+        #      $RUNNER_TEMP — never into the workspace.
+        #   4. Any failure aborts the action. We never silently fall back
+        #      to "review with no rules", because that would let a
+        #      misconfiguration downgrade the review contract.
+        if [[ "${RULES_RELATIVE}" == -* ]] || [[ "${RULES_RELATIVE}" == *..* ]]; then
+          echo "::error::rules-path contains an unsafe component: '${RULES_RELATIVE}'" >&2
+          exit 1
+        fi
+
+        ENTRY_TYPE=$(git ls-tree "${BASE_SHA}" "${RULES_RELATIVE}" -- | awk '{print $2}')
+        if [[ -z "${ENTRY_TYPE}" ]]; then
+          echo "::error::No entry '${RULES_RELATIVE}' in base ref ${BASE_SHA}. rules-path must point to an existing file." >&2
+          exit 1
+        fi
+        if [[ "${ENTRY_TYPE}" != "blob" ]]; then
+          echo "::error::rules-path '${RULES_RELATIVE}' is a ${ENTRY_TYPE} in base ref ${BASE_SHA}, not a regular file. Symlinks and submodules are not allowed." >&2
+          exit 1
+        fi
+
+        RULES_FILE="$(mktemp -p "${RUNNER_TEMP:-/tmp}" cra-rules-XXXXXX.md)"
+        chmod 0644 "${RULES_FILE}"
+        if ! git show "${BASE_SHA}:${RULES_RELATIVE}" > "${RULES_FILE}"; then
+          rm -f "${RULES_FILE}"
+          echo "::error::git show failed for ${BASE_SHA}:${RULES_RELATIVE}" >&2
+          exit 1
+        fi
+
+        echo "rules-path=${RULES_FILE}" >> "$GITHUB_OUTPUT"
+        echo "Loaded trusted rules from ${BASE_SHA}:${RULES_RELATIVE} (${ENTRY_TYPE}) → ${RULES_FILE}"
+
+    - name: Build PR diff
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        DIFF_PATH: ${{ steps.resolve-paths.outputs.diff-path }}
+      run: |
+        git diff --no-ext-diff --unified=80 "$BASE_SHA" "$HEAD_SHA" > "$DIFF_PATH"
+
+    - name: Run Code Review Agent
+      shell: bash
+      env:
+        CRA_API_KEY: ${{ inputs.api-key }}
+        CRA_PROVIDER: ${{ inputs.provider }}
+        CRA_MODEL: ${{ inputs.model }}
+        CRA_RULES_PATH: ${{ steps.load-rules.outputs.rules-path }}
+        CRA_DIFF_PATH: ${{ steps.resolve-paths.outputs.diff-path }}
+        CRA_OUTPUT_PATH: ${{ steps.resolve-paths.outputs.output-path }}
+        CRA_MAX_DIFF_BYTES: ${{ inputs.max-diff-bytes }}
+        CRA_MAX_DIFF_LINES: ${{ inputs.max-diff-lines }}
+      run: gradle -p "$GITHUB_ACTION_PATH" run --no-daemon --quiet
+
+    - name: Find previous review comment
+      id: find-comment
+      uses: peter-evans/find-comment@v4
+      with:
+        token: ${{ inputs.github-token }}
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-author: github-actions[bot]
+        # Accept both the new marker and the legacy v1 marker so existing
+        # comments from earlier releases are picked up and replaced in
+        # place instead of producing a duplicate.
+        body-regex: '<!-- code-review-agent-by-boghus -->|<!-- code-review-agent -->'
+
+    - name: Create or update review comment
+      uses: peter-evans/create-or-update-comment@v5
+      with:
+        token: ${{ inputs.github-token }}
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-id: ${{ steps.find-comment.outputs.comment-id }}
+        body-path: ${{ steps.resolve-paths.outputs.output-path }}
+        edit-mode: replace
