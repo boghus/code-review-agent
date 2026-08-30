@@ -11,9 +11,9 @@ inputs:
     description: 'API key for the AI provider. Map any repository secret to this input.'
     required: true
   model:
-    description: 'Model identifier passed to the AI provider (e.g. gemini-2.5-flash).'
+    description: 'Model identifier passed to the AI provider (e.g. gemini-3.6-flash).'
     required: false
-    default: 'gemini-2.5-flash'
+    default: 'gemini-3.6-flash'
   provider:
     description: 'AI provider implementation. Currently only "gemini" is supported.'
     required: false

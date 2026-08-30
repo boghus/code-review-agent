@@ -10,6 +10,9 @@ permissions:
   contents: read
   pull-requests: write
 
+env:
+  SELF_REVIEW_GEMINI_MODEL: gemini-3.6-flash
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -22,3 +25,30 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: gradle build --no-daemon
       - run: gradle test --no-daemon
+
+  self-review:
+    name: Self-review with Code Review Agent
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Show self-review configuration
+        shell: bash
+        run: |
+          echo "Code Review Agent self-review provider: gemini"
+          echo "Code Review Agent self-review model: ${SELF_REVIEW_GEMINI_MODEL}"
+
+      # Run the action from this PR instead of a published tag. This makes
+      # the repository capable of reviewing changes to the reviewer itself.
+      - name: Run self-review
+        uses: ./
+        with:
+          api-key: ${{ secrets.GEMINI_API_KEY }}
+          model: ${{ env.SELF_REVIEW_GEMINI_MODEL }}
+          provider: gemini
+          github-token: ${{ github.token }}
