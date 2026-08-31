@@ -46,7 +46,7 @@ class CodeReviewIntegrationTest {
 
         String prompt = new com.boghus.codereview.review.ReviewPromptBuilder().build('', diff.text)
         String text = new FakeProvider().review(prompt)
-        new ReviewReportWriter().write(output.absolutePath, text)
+        new ReviewReportWriter().writeAiGenerated(output.absolutePath, text)
 
         assertThat(output.text)
             .startsWith(ReviewReportWriter.COMMENT_MARKER)

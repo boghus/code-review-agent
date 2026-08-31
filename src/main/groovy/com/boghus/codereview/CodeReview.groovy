@@ -76,7 +76,7 @@ class CodeReview {
 
         try {
             String text = provider.review(prompt)
-            writer.write(inputs.outputPath, text)
+            writer.writeAiGenerated(inputs.outputPath, text)
             println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.name()}/${inputs.model}."
         } catch (AiProviderException ex) {
             writer.writeFailure(inputs.outputPath, ex.userMessage)

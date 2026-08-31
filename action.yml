@@ -132,7 +132,6 @@ runs:
           echo "::error::rules-path contains an unsafe component: '${RULES_RELATIVE}'" >&2
           exit 1
         fi
-
         ENTRY_TYPE=$(git ls-tree "${BASE_SHA}" "${RULES_RELATIVE}" -- | awk '{print $2}')
         if [[ -z "${ENTRY_TYPE}" ]]; then
           echo "::error::No entry '${RULES_RELATIVE}' in base ref ${BASE_SHA}. rules-path must point to an existing file." >&2
@@ -142,7 +141,6 @@ runs:
           echo "::error::rules-path '${RULES_RELATIVE}' is a ${ENTRY_TYPE} in base ref ${BASE_SHA}, not a regular file. Symlinks and submodules are not allowed." >&2
           exit 1
         fi
-
         RULES_FILE="$(mktemp -p "${RUNNER_TEMP:-/tmp}" cra-rules-XXXXXX.md)"
         chmod 0644 "${RULES_FILE}"
         if ! git show "${BASE_SHA}:${RULES_RELATIVE}" > "${RULES_FILE}"; then
@@ -150,7 +148,6 @@ runs:
           echo "::error::git show failed for ${BASE_SHA}:${RULES_RELATIVE}" >&2
           exit 1
         fi
-
         echo "rules-path=${RULES_FILE}" >> "$GITHUB_OUTPUT"
         echo "Loaded trusted rules from ${BASE_SHA}:${RULES_RELATIVE} (${ENTRY_TYPE}) → ${RULES_FILE}"
 
@@ -172,6 +169,8 @@ runs:
         CRA_RULES_PATH: ${{ steps.load-rules.outputs.rules-path }}
         CRA_DIFF_PATH: ${{ steps.resolve-paths.outputs.diff-path }}
         CRA_OUTPUT_PATH: ${{ steps.resolve-paths.outputs.output-path }}
+        CRA_ACTION_REF: ${{ github.action_ref || github.event.pull_request.head.ref || github.ref_name }}
+        CRA_ACTION_SHA: ${{ github.action_sha || github.event.pull_request.head.sha || github.sha }}
         CRA_MAX_DIFF_BYTES: ${{ inputs.max-diff-bytes }}
         CRA_MAX_DIFF_LINES: ${{ inputs.max-diff-lines }}
       run: gradle -p "$GITHUB_ACTION_PATH" run --no-daemon --quiet
