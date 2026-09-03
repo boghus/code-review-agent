@@ -3,6 +3,7 @@ package com.boghus.codereview
 import com.boghus.codereview.github.ActionInputs
 import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
+import com.boghus.codereview.provider.AiProviderErrorCategory
 import com.boghus.codereview.provider.AiProviderException
 import org.junit.jupiter.api.Test
 
@@ -19,7 +20,7 @@ class CodeReviewFailurePrivacyTest {
         String name() { 'fake' }
         String review(String prompt) {
             throw new AiProviderException(
-                AiProviderException.CATEGORY_UNKNOWN,
+                AiProviderErrorCategory.UNKNOWN,
                 'The AI provider failed with an internal error.',
                 new RuntimeException('super secret internal detail: project=acme token=abc123')
             )
