@@ -11,7 +11,7 @@ the architecture is open to OpenAI, Anthropic and others.
 - One review comment per PR, updated on every push (no spam).
 - Provider-agnostic interface, easy to evolve.
 - Runs inside your GitHub Actions runner. The PR diff and repository review rules are sent to the configured AI provider for analysis.
-- Minimal input surface: `api-key` + `model`.
+- Minimal input surface: `api-key` + `model` + optional `language`.
 
 ## Data & privacy
 
@@ -64,6 +64,7 @@ jobs:
           api-key: ${{ secrets.MY_AI_KEY }}
           model: gemini-2.5-flash
           provider: gemini
+          language: es
 ```
 
 ## GitHub permissions and token isolation
@@ -114,12 +115,16 @@ The Action never assumes the secret name. You own that contract.
 | `api-key`    | yes      | —                      | Provider API key. Map any repository secret. |
 | `model`      | no       | `gemini-2.5-flash`     | Model identifier passed to the provider. |
 | `provider`   | no       | `gemini`               | Provider implementation. Only `gemini` is wired in v1. |
+| `language`   | no       | `en`                   | Review language. Supported values: `en`, `es`. Invalid values default to `en`. |
 | `rules-path` | no       | `.github/code_review_rules.md` | Path of the rules file **inside the repository** (relative to the repo root). Read from the PR base ref. |
 | `diff-path`  | no       | `cra-pr.diff`          | Where the PR diff is written. Relative to `${{ github.workspace }}` or absolute. |
 | `output-path`| no       | `cra-review.md`        | Where the generated review is written. Relative to `${{ github.workspace }}` or absolute. |
 | `github-token`| no      | `${{ github.token }}`  | Token used to post the comment. |
 | `max-diff-bytes`| no    | `200000`               | Skip the review with a warning if the diff exceeds this many bytes. |
 | `max-diff-lines`| no    | `4000`                 | Skip the review with a warning if the diff exceeds this number of lines. |
+
+The review is generated directly in the selected language in the same AI
+request. The action does not perform a second translation step.
 
 ### Path inputs
 
@@ -170,6 +175,7 @@ com.boghus.codereview
 │   └── GeminiAdapter           first implementation
 ├── review
 │   ├── DiffAnalyzer            extracts changed files / lines
+│   ├── ReviewLanguage           supported review languages
 │   └── ReviewPromptBuilder     builds the prompt safely
 └── output
     └── ReviewReportWriter      writes the PR comment body
@@ -220,6 +226,7 @@ export CRA_API_KEY=...
 export CRA_DIFF_PATH=/tmp/cra-pr.diff
 export CRA_OUTPUT_PATH=/tmp/cra-review.md
 export CRA_RULES_PATH=$PWD/.github/code_review_rules.md
+export CRA_LANGUAGE=es
 gradle run --quiet
 
 # 3. Inspect the generated review
@@ -240,6 +247,5 @@ working directory, not the consumer repo.
 ## Roadmap
 
 - Output formats (`markdown`, `sarif`).
-- Response language (`language: es|en|...`).
 - Custom rules path / inline rules.
 - OpenAI and Anthropic adapters.
