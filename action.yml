@@ -1,5 +1,5 @@
 name: 'Code Review Agent by boghus'
-description: 'AI-powered Pull Request reviewer. Posts a single, idempotent review comment. Provider-agnostic (Gemini first).'
+description: 'AI-powered Pull Request reviewer. Posts a single, idempotent review comment. Provider-agnostic (Gemini and MiniMax).'
 author: 'boghus'
 
 branding:
@@ -11,11 +11,11 @@ inputs:
     description: 'API key for the AI provider. Map any repository secret to this input.'
     required: true
   model:
-    description: 'Model identifier passed to the AI provider (e.g. gemini-3.6-flash).'
+    description: 'Model identifier passed to the AI provider (e.g. gemini-3.6-flash or MiniMax-M3).'
     required: false
     default: 'gemini-3.6-flash'
   provider:
-    description: 'AI provider implementation. Currently only "gemini" is supported.'
+    description: 'AI provider implementation. Supported values: gemini, minimax.'
     required: false
     default: 'gemini'
   language:
@@ -81,10 +81,6 @@ runs:
             echo "$WORKSPACE/$raw"
           fi
         }
-        # rules-path is intentionally NOT resolved against the workspace —
-        # the trusted rules are materialised into a runner-controlled temp
-        # directory by the next step, so the consumer's rules-path value
-        # never becomes a destination on a filesystem the PR can manipulate.
         if [[ "${{ inputs.rules-path }}" == /* ]]; then
           echo "::error::rules-path must be a path inside the repository, not an absolute filesystem path. Got: ${{ inputs.rules-path }}" >&2
           exit 1
@@ -102,36 +98,6 @@ runs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         RULES_RELATIVE: ${{ steps.resolve-paths.outputs.rules-relative }}
       run: |
-        # Security-critical: the repository rules file is presented to the
-        # model as TRUSTED instructions. We therefore read it from the PR
-        # base ref and materialise it into a runner-controlled temp
-        # directory (NOT into the workspace the PR controls).
-        #
-        # The trust boundary is:
-        #
-        #     BASE_SHA (trusted git tree)
-        #          │
-        #          ├── git ls-tree   → validate entry type (blob)
-        #          ├── git show      → read raw bytes
-        #          └── write to /tmp file created by mktemp
-        #                              │
-        #                              ▼
-        #                       Gradle / orchestrator
-        #
-        # The PR-controlled workspace is never the destination of this
-        # write. Even if the PR pre-creates a symlink at the same path
-        # under the workspace, our output lives elsewhere and the
-        # orchestrator reads only what we just wrote.
-        #
-        # Defences, in order:
-        #   1. Reject rules-path containing '..' or starting with '-'.
-        #   2. Verify the entry is a regular blob in the base tree
-        #      (not a symlink, not a submodule, not a directory).
-        #   3. Materialise into a freshly-created mktemp file under
-        #      $RUNNER_TEMP — never into the workspace.
-        #   4. Any failure aborts the action. We never silently fall back
-        #      to "review with no rules", because that would let a
-        #      misconfiguration downgrade the review contract.
         if [[ "${RULES_RELATIVE}" == -* ]] || [[ "${RULES_RELATIVE}" == *..* ]]; then
           echo "::error::rules-path contains an unsafe component: '${RULES_RELATIVE}'" >&2
           exit 1
@@ -167,8 +133,6 @@ runs:
     - name: Run Code Review Agent
       shell: bash
       env:
-        # Explicitly remove the GitHub token from the AI process boundary.
-        # GitHub API operations belong exclusively to the comment steps below.
         GITHUB_TOKEN: ''
         CRA_API_KEY: ${{ inputs.api-key }}
         CRA_PROVIDER: ${{ inputs.provider }}
@@ -190,9 +154,6 @@ runs:
         token: ${{ inputs.github-token }}
         issue-number: ${{ github.event.pull_request.number }}
         comment-author: github-actions[bot]
-        # Accept both the new marker and the legacy v1 marker so existing
-        # comments from earlier releases are picked up and replaced in
-        # place instead of producing a duplicate.
         body-regex: '<!-- code-review-agent-by-boghus -->|<!-- code-review-agent -->'
 
     - name: Create or update review comment
