@@ -2,6 +2,7 @@ package com.boghus.minimax.client
 
 import com.boghus.minimax.exception.MiniMaxException
 import com.boghus.minimax.model.ChatRequest
+import com.boghus.minimax.model.ChatResponse
 import com.boghus.minimax.model.Message
 import com.sun.net.httpserver.HttpServer
 import org.junit.jupiter.api.AfterEach
