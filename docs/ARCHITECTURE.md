@@ -1,7 +1,5 @@
 # Architecture
 
-## Goal
-
 A GitHub Action that posts a single, idempotent AI review per Pull Request,
 with a provider-agnostic core so Gemini is the first adapter, not the contract.
 
@@ -20,6 +18,7 @@ action.yml steps
    ├── gradle run  ──►  CodeReview.main()
    │                         │
    │                         ├── ActionInputs.fromEnv()
+   │                         │       └── InputParser.parsePositiveInt()
    │                         ├── DiffAnalyzer.parse()
    │                         ├── ReviewPromptBuilder.build()
    │                         ├── AiProviderFactory.create('gemini', apiKey, model)
@@ -32,16 +31,29 @@ action.yml steps
 
 | Module              | Responsibility                                        |
 |---------------------|-------------------------------------------------------|
-| `github`            | Read environment / typed inputs.                      |
+| `github`            | Adapt GitHub environment inputs into typed values.    |
 | `review`            | Build prompt, analyse diff.                           |
 | `provider`          | Provider abstraction + first concrete adapter.        |
 | `output`            | Render the markdown body that becomes the comment.    |
 | `CodeReview`        | Orchestrator. No business logic of its own.           |
 
+### Input boundary
+
+`ActionInputs` and `InputParser` deliberately have different responsibilities:
+
+- `ActionInputs` reads `CRA_*` variables and applies Action-level defaults.
+- `InputParser` owns parsing rules with semantic validation, such as requiring a positive integer.
+- `ActionInputs` delegates parsing instead of duplicating validation.
+
+This boundary keeps GitHub-specific environment handling separate from reusable input semantics.
+
+See [`AI_CONTEXT.md`](AI_CONTEXT.md) for the rules intended to be consumed by AI coding/review agents.
+
 ## Contracts
 
 - `AiProvider` — `String review(String prompt)`. Stateless.
-- `ActionInputs` — only carries values from `CRA_*` env vars.
+- `ActionInputs` — reads `CRA_*` environment variables and exposes typed configuration; parsing/validation belongs to `InputParser`.
+- `InputParser` — owns parsing and validation rules for supported input types.
 - `ReviewReportWriter` — every body starts with the marker
   `<!-- code-review-agent-by-boghus -->`; that marker is what
   `peter-evans/find-comment` keys on. The action's find step also accepts
