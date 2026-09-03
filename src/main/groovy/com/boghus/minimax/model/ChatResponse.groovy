@@ -7,7 +7,7 @@ class ChatResponse {
     final String content
     final String model
 
-    ChatResponse(String content, String model) {
+    public ChatResponse(String content, String model) {
         this.content = content
         this.model = model
     }
