@@ -25,6 +25,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: gradle build --no-daemon
       - run: gradle test --no-daemon
+      - name: Verify GitHub token isolation
+        shell: bash
+        run: bash scripts/security-check-github-token.sh
 
   self-review:
     name: Self-review with Code Review Agent

@@ -163,6 +163,9 @@ runs:
     - name: Run Code Review Agent
       shell: bash
       env:
+        # Explicitly remove the GitHub token from the AI process boundary.
+        # GitHub API operations belong exclusively to the comment steps below.
+        GITHUB_TOKEN: ''
         CRA_API_KEY: ${{ inputs.api-key }}
         CRA_PROVIDER: ${{ inputs.provider }}
         CRA_MODEL: ${{ inputs.model }}
