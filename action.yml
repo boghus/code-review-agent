@@ -18,6 +18,10 @@ inputs:
     description: 'AI provider implementation. Currently only "gemini" is supported.'
     required: false
     default: 'gemini'
+  language:
+    description: 'Language for the generated review. Supported values: en, es. Invalid values default to en.'
+    required: false
+    default: 'en'
   rules-path:
     description: 'Path to the markdown file containing repository-specific review rules.'
     required: false
@@ -169,6 +173,7 @@ runs:
         CRA_API_KEY: ${{ inputs.api-key }}
         CRA_PROVIDER: ${{ inputs.provider }}
         CRA_MODEL: ${{ inputs.model }}
+        CRA_LANGUAGE: ${{ inputs.language }}
         CRA_RULES_PATH: ${{ steps.load-rules.outputs.rules-path }}
         CRA_DIFF_PATH: ${{ steps.resolve-paths.outputs.diff-path }}
         CRA_OUTPUT_PATH: ${{ steps.resolve-paths.outputs.output-path }}

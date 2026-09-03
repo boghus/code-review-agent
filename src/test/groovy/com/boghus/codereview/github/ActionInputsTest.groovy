@@ -1,5 +1,6 @@
 package com.boghus.codereview.github
 
+import com.boghus.codereview.review.ReviewLanguage
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
@@ -15,6 +16,7 @@ class ActionInputsTest {
         assertThat(inputs.rulesPath).isEqualTo(ActionInputs.DEFAULT_RULES_PATH)
         assertThat(inputs.diffPath).isEqualTo(ActionInputs.DEFAULT_DIFF_PATH)
         assertThat(inputs.outputPath).isEqualTo(ActionInputs.DEFAULT_OUTPUT_PATH)
+        assertThat(inputs.language).isEqualTo(ReviewLanguage.ENGLISH)
         assertThat(inputs.maxDiffBytes).isEqualTo(ActionInputs.DEFAULT_MAX_DIFF_BYTES)
         assertThat(inputs.maxDiffLines).isEqualTo(ActionInputs.DEFAULT_MAX_DIFF_LINES)
     }
@@ -25,6 +27,7 @@ class ActionInputsTest {
             CRA_API_KEY       : 'secret',
             CRA_PROVIDER      : 'gemini',
             CRA_MODEL         : 'gemini-test',
+            CRA_LANGUAGE     : 'es',
             CRA_RULES_PATH    : '/tmp/rules.md',
             CRA_DIFF_PATH     : '/tmp/diff',
             CRA_OUTPUT_PATH   : '/tmp/out.md',
@@ -36,6 +39,7 @@ class ActionInputsTest {
 
         assertThat(inputs.apiKey).isEqualTo('secret')
         assertThat(inputs.model).isEqualTo('gemini-test')
+        assertThat(inputs.language).isEqualTo(ReviewLanguage.SPANISH)
         assertThat(inputs.rulesPath).isEqualTo('/tmp/rules.md')
         assertThat(inputs.diffPath).isEqualTo('/tmp/diff')
         assertThat(inputs.outputPath).isEqualTo('/tmp/out.md')

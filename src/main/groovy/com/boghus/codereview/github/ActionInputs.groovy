@@ -1,5 +1,6 @@
 package com.boghus.codereview.github
 
+import com.boghus.codereview.review.ReviewLanguage
 import groovy.transform.CompileStatic
 
 /**
@@ -27,6 +28,7 @@ class ActionInputs {
     String rulesPath
     String diffPath
     String outputPath
+    ReviewLanguage language
     int maxDiffBytes
     int maxDiffLines
 
@@ -38,6 +40,7 @@ class ActionInputs {
         inputs.rulesPath = env.CRA_RULES_PATH ?: DEFAULT_RULES_PATH
         inputs.diffPath = env.CRA_DIFF_PATH ?: DEFAULT_DIFF_PATH
         inputs.outputPath = env.CRA_OUTPUT_PATH ?: DEFAULT_OUTPUT_PATH
+        inputs.language = InputParser.parseLanguage(env.CRA_LANGUAGE)
         inputs.maxDiffBytes = InputParser.parsePositiveInt(env.CRA_MAX_DIFF_BYTES, DEFAULT_MAX_DIFF_BYTES)
         inputs.maxDiffLines = InputParser.parsePositiveInt(env.CRA_MAX_DIFF_LINES, DEFAULT_MAX_DIFF_LINES)
         return inputs
