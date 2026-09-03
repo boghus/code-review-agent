@@ -9,7 +9,7 @@ class ChatRequest {
     final BigDecimal temperature
     final Integer maxCompletionTokens
 
-    ChatRequest(String model, List<Message> messages, BigDecimal temperature = 0.1G, Integer maxCompletionTokens = 4096) {
+    public ChatRequest(String model, List<Message> messages, BigDecimal temperature = 0.1G, Integer maxCompletionTokens = 4096) {
         if (!model?.trim()) throw new IllegalArgumentException('MiniMax model must not be blank.')
         if (!messages) throw new IllegalArgumentException('Chat messages must not be empty.')
         this.model = model
