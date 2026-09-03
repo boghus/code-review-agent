@@ -23,7 +23,7 @@ class MiniMaxClient {
     private final String baseUrl
     private final Duration timeout
 
-    MiniMaxClient(String apiKey, String baseUrl = DEFAULT_BASE_URL, Duration timeout = Duration.ofSeconds(60)) {
+    public MiniMaxClient(String apiKey, String baseUrl = DEFAULT_BASE_URL, Duration timeout = Duration.ofSeconds(60)) {
         if (!apiKey?.trim()) throw new IllegalArgumentException('MiniMax API key must not be blank.')
         if (!baseUrl?.trim()) throw new IllegalArgumentException('MiniMax base URL must not be blank.')
         if (timeout == null || timeout.isNegative() || timeout.isZero()) {
@@ -35,7 +35,7 @@ class MiniMaxClient {
         this.httpClient = HttpClient.newBuilder().connectTimeout(timeout).build()
     }
 
-    ChatResponse chat(ChatRequest request) {
+    public ChatResponse chat(ChatRequest request) {
         if (request == null) throw new IllegalArgumentException('Chat request must not be null.')
 
         String payload = JsonOutput.toJson([
