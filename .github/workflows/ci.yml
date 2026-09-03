@@ -45,6 +45,7 @@ jobs:
         run: |
           echo "Code Review Agent self-review provider: gemini"
           echo "Code Review Agent self-review model: ${SELF_REVIEW_GEMINI_MODEL}"
+          echo "Code Review Agent self-review language: es"
 
       # Run the action from this PR instead of a published tag. This makes
       # the repository capable of reviewing changes to the reviewer itself.
@@ -54,4 +55,5 @@ jobs:
           api-key: ${{ secrets.GEMINI_API_KEY }}
           model: ${{ env.SELF_REVIEW_GEMINI_MODEL }}
           provider: gemini
+          language: es
           github-token: ${{ github.token }}
