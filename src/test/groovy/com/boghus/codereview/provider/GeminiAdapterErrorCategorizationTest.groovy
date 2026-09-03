@@ -3,7 +3,6 @@ package com.boghus.codereview.provider
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
-import static org.assertj.core.api.Assertions.assertThatThrownBy
 
 /**
  * Tests for the translation layer inside GeminiAdapter: SDK-specific
@@ -84,14 +83,15 @@ class GeminiAdapterErrorCategorizationTest {
     }
 
     @Test
-    void 'AiProviderException carries category and user message'() {
+    void 'AiProviderException carries typed category, user message and cause'() {
+        RuntimeException cause = new RuntimeException('inner')
         AiProviderException ex = new AiProviderException(
-            AiProviderException.CATEGORY_QUOTA,
+            AiProviderErrorCategory.QUOTA,
             'Quota exhausted',
-            new RuntimeException('inner')
+            cause
         )
-        assertThat(ex.category).isEqualTo(AiProviderException.CATEGORY_QUOTA)
+        assertThat(ex.category).isEqualTo(AiProviderErrorCategory.QUOTA)
         assertThat(ex.userMessage).isEqualTo('Quota exhausted')
-        assertThat(ex.cause).isInstanceOf(RuntimeException.class)
+        assertThat(ex.getCause()).isSameAs(cause)
     }
 }

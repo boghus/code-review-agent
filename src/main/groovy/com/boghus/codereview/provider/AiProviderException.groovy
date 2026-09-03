@@ -17,21 +17,12 @@ import groovy.transform.CompileStatic
 @CompileStatic
 class AiProviderException extends RuntimeException {
 
-    final String category
+    final AiProviderErrorCategory category
     final String userMessage
 
-    AiProviderException(String category, String userMessage, Throwable cause = null) {
+    AiProviderException(AiProviderErrorCategory category, String userMessage, Throwable cause = null) {
         super(userMessage, cause)
         this.category = category
         this.userMessage = userMessage
     }
-
-    /** Quota / rate-limit exhaustion. Usually transient. */
-    static final String CATEGORY_QUOTA = 'quota'
-
-    /** Authentication or authorization failure (401, 403). Usually a config issue. */
-    static final String CATEGORY_AUTH = 'auth'
-
-    /** Anything else the adapter could not classify. Provider may be down. */
-    static final String CATEGORY_UNKNOWN = 'unknown'
 }

@@ -68,7 +68,7 @@ class GeminiAdapter implements AiProvider {
             String text = response.text()?.trim()
             if (!text) {
                 throw new AiProviderException(
-                    AiProviderException.CATEGORY_UNKNOWN,
+                    AiProviderErrorCategory.UNKNOWN,
                     'Gemini responded successfully but returned no content for the review.',
                     null
                 )
@@ -78,7 +78,7 @@ class GeminiAdapter implements AiProvider {
             throw translate(ex)
         } catch (RuntimeException ex) {
             throw new AiProviderException(
-                AiProviderException.CATEGORY_UNKNOWN,
+                AiProviderErrorCategory.UNKNOWN,
                 "Gemini could not complete the review with **${model}**. Check the workflow log for the technical error and retry.",
                 ex
             )
@@ -91,62 +91,36 @@ class GeminiAdapter implements AiProvider {
      * the original cause for the runner log.
      */
     private static AiProviderException translate(ApiException ex) {
-        String category
+        AiProviderErrorCategory category
         String message
         if (isQuotaError(ex)) {
-            category = AiProviderException.CATEGORY_QUOTA
+            category = AiProviderErrorCategory.QUOTA
             message = "Quota exhausted for **${ex instanceof ApiException ? safeModelFor(ex) : 'gemini'}**. The request will not be retried again automatically. Reduce PR size or wait for the quota window to reset."
         } else if (isAuthError(ex)) {
-            category = AiProviderException.CATEGORY_AUTH
+            category = AiProviderErrorCategory.AUTHENTICATION
             message = "Authentication failed for **${safeModelFor(ex)}**. Check that the API key provided to the `api-key` input is valid and has access to this model."
         } else {
-            category = AiProviderException.CATEGORY_UNKNOWN
+            category = AiProviderErrorCategory.UNKNOWN
             message = "Gemini could not complete the review with **${safeModelFor(ex)}**. Check the workflow log for the technical error and retry when the provider is reachable again."
         }
         return new AiProviderException(category, message, ex)
     }
 
     private static String safeModelFor(ApiException ex) {
-        // We deliberately do not echo the model name from the exception itself
-        // because the SDK may not include it; the orchestrator is the source
-        // of truth for the configured model and will overwrite this if needed.
         return 'gemini'
     }
 
-    /**
-     * Categorises a Gemini SDK failure into a stable, user-safe label.
-     *
-     * <p>Kept as a thin shim so existing tests and any external caller can
-     * still obtain a user-safe summary from a raw {@link ApiException}
-     * without having to catch {@link AiProviderException} themselves. The
-     * normal flow is to let {@link #review(String)} throw
-     * {@link AiProviderException} directly.</p>
-     */
     static String categorizeError(ApiException exception, String model) {
         AiProviderException translated = translate(exception)
-        // Override the placeholder model name with the one the orchestrator
-        // actually used (translate() cannot see it from the exception alone).
         return translated.userMessage.replace('**gemini**', "**${model}**")
     }
 
-    /**
-     * Returns a log-safe summary of the SDK exception. Strips backticks so
-     * the message cannot accidentally break Markdown formatting in the
-     * runner log. Never include the result of this method in a PR comment.
-     */
     static String safeMessageForLog(ApiException exception) {
         String msg = exception.message
         if (!msg) return 'unknown error'
         return msg.replace('`', "'")
     }
 
-    /**
-     * Detects quota / rate-limit errors without touching the SDK's internal API.
-     *
-     * The {@code ApiException.message} follows the format produced by
-     * {@code BaseException}'s constructor: {@code "<code> <status>. <message>"}.
-     * We only need to know whether the HTTP status was 429.
-     */
     private static boolean isQuotaError(ApiException exception) {
         return extractHttpStatus(exception) == 429
     }
