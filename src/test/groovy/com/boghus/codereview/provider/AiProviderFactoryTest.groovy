@@ -12,7 +12,22 @@ class AiProviderFactoryTest {
         AiProvider provider = AiProviderFactory.create('gemini', 'k', 'm')
 
         assertThat(provider).isInstanceOf(GeminiAdapter)
-        assertThat(provider.name()).isEqualTo('gemini')
+        assertThat(provider.type()).isEqualTo(AiProviderType.GEMINI)
+    }
+
+    @Test
+    void 'creates a GeminiAdapter from the provider enum'() {
+        AiProvider provider = AiProviderFactory.create(AiProviderType.GEMINI, 'k', 'm')
+
+        assertThat(provider).isInstanceOf(GeminiAdapter)
+        assertThat(provider.type()).isEqualTo(AiProviderType.GEMINI)
+    }
+
+    @Test
+    void 'accepts provider names case insensitively'() {
+        AiProvider provider = AiProviderFactory.create(' GEMINI ', 'k', 'm')
+
+        assertThat(provider.type()).isEqualTo(AiProviderType.GEMINI)
     }
 
     @Test

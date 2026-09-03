@@ -5,6 +5,7 @@ import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
 import com.boghus.codereview.provider.AiProviderErrorCategory
 import com.boghus.codereview.provider.AiProviderException
+import com.boghus.codereview.provider.AiProviderType
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
@@ -17,7 +18,9 @@ import static org.assertj.core.api.Assertions.assertThat
 class CodeReviewFailurePrivacyTest {
 
     static class ThrowingProvider implements AiProvider {
-        String name() { 'fake' }
+        @Override
+        AiProviderType type() { AiProviderType.GEMINI }
+
         String review(String prompt) {
             throw new AiProviderException(
                 AiProviderErrorCategory.UNKNOWN,

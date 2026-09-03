@@ -3,6 +3,7 @@ package com.boghus.codereview
 import com.boghus.codereview.github.ActionInputs
 import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
+import com.boghus.codereview.provider.AiProviderType
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
@@ -15,7 +16,9 @@ import static org.assertj.core.api.Assertions.assertThat
 class CodeReviewIntegrationTest {
 
     static class FakeProvider implements AiProvider {
-        String name() { 'fake' }
+        @Override
+        AiProviderType type() { AiProviderType.GEMINI }
+
         String review(String prompt) {
             return '## 🤖 Code Review Agent by boghus\n\nNo findings.\n'
         }

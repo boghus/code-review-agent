@@ -5,29 +5,31 @@ import java.util.function.BiFunction
 /**
  * Factory that resolves an {@link AiProvider} from the configured provider name.
  *
- * The provider abstraction is intentionally minimal: name + review. Adding a
- * new adapter only requires registering it here.
+ * The configuration boundary accepts a String, but provider resolution uses
+ * {@link AiProviderType} internally so provider names are not magic strings
+ * throughout the domain.
  */
 class AiProviderFactory {
 
-    private static final Map<String, BiFunction<String, String, AiProvider>> REGISTRY = [
-        (GeminiAdapter.PROVIDER_NAME): { String apiKey, String model -> new GeminiAdapter(apiKey, model) }
+    private static final Map<AiProviderType, BiFunction<String, String, AiProvider>> REGISTRY = [
+        (AiProviderType.GEMINI): { String apiKey, String model -> new GeminiAdapter(apiKey, model) }
     ]
 
     static AiProvider create(String providerName, String apiKey, String model) {
-        if (!providerName?.trim()) {
-            throw new IllegalArgumentException('Provider name must not be blank.')
-        }
-        BiFunction<String, String, AiProvider> builder = REGISTRY[providerName]
+        return create(AiProviderType.fromConfigName(providerName), apiKey, model)
+    }
+
+    static AiProvider create(AiProviderType providerType, String apiKey, String model) {
+        BiFunction<String, String, AiProvider> builder = REGISTRY[providerType]
         if (builder == null) {
             throw new IllegalArgumentException(
-                "Unsupported provider '${providerName}'. Supported: ${REGISTRY.keySet().join(', ')}."
+                "Unsupported provider '${providerType}'. Supported: ${supportedProviders().join(', ')}."
             )
         }
         return builder.apply(apiKey, model)
     }
 
     static Set<String> supportedProviders() {
-        return REGISTRY.keySet() as Set<String>
+        return REGISTRY.keySet()*.configName as Set<String>
     }
 }
