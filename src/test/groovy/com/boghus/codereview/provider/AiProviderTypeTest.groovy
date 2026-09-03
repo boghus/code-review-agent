@@ -10,11 +10,13 @@ class AiProviderTypeTest {
     @Test
     void 'resolves provider from configuration name'() {
         assertThat(AiProviderType.fromConfigName('gemini')).isEqualTo(AiProviderType.GEMINI)
+        assertThat(AiProviderType.fromConfigName('minimax')).isEqualTo(AiProviderType.MINIMAX)
     }
 
     @Test
     void 'resolves provider names case insensitively and trims whitespace'() {
         assertThat(AiProviderType.fromConfigName(' GEMINI ')).isEqualTo(AiProviderType.GEMINI)
+        assertThat(AiProviderType.fromConfigName(' MINIMAX ')).isEqualTo(AiProviderType.MINIMAX)
     }
 
     @Test
@@ -30,5 +32,6 @@ class AiProviderTypeTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining('openai')
             .hasMessageContaining('gemini')
+            .hasMessageContaining('minimax')
     }
 }
