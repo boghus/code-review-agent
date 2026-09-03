@@ -7,6 +7,7 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 
+import java.io.IOException
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -20,16 +21,23 @@ class MiniMaxClient {
     private final HttpClient httpClient
     private final String apiKey
     private final String baseUrl
+    private final Duration timeout
 
     MiniMaxClient(String apiKey, String baseUrl = DEFAULT_BASE_URL, Duration timeout = Duration.ofSeconds(60)) {
         if (!apiKey?.trim()) throw new IllegalArgumentException('MiniMax API key must not be blank.')
         if (!baseUrl?.trim()) throw new IllegalArgumentException('MiniMax base URL must not be blank.')
+        if (timeout == null || timeout.isNegative() || timeout.isZero()) {
+            throw new IllegalArgumentException('MiniMax timeout must be positive.')
+        }
         this.apiKey = apiKey
         this.baseUrl = baseUrl.replaceAll('/+$', '')
+        this.timeout = timeout
         this.httpClient = HttpClient.newBuilder().connectTimeout(timeout).build()
     }
 
     ChatResponse chat(ChatRequest request) {
+        if (request == null) throw new IllegalArgumentException('Chat request must not be null.')
+
         String payload = JsonOutput.toJson([
             model: request.model,
             messages: request.messages.collect { [role: it.role, content: it.content] },
@@ -40,7 +48,7 @@ class MiniMaxClient {
 
         HttpRequest httpRequest = HttpRequest.newBuilder()
             .uri(URI.create("${baseUrl}/chat/completions"))
-            .timeout(Duration.ofSeconds(60))
+            .timeout(timeout)
             .header('Authorization', "Bearer ${apiKey}")
             .header('Content-Type', 'application/json')
             .POST(HttpRequest.BodyPublishers.ofString(payload))
@@ -52,8 +60,7 @@ class MiniMaxClient {
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt()
             throw new MiniMaxException('MiniMax request was interrupted.', 0, ex)
-        } catch (IOException | RuntimeException ex) {
-            if (ex instanceof MiniMaxException) throw ex
+        } catch (IOException ex) {
             throw new MiniMaxException('MiniMax request could not be completed.', 0, ex)
         }
     }
