@@ -38,22 +38,12 @@ class ActionInputs {
         inputs.rulesPath = env.CRA_RULES_PATH ?: DEFAULT_RULES_PATH
         inputs.diffPath = env.CRA_DIFF_PATH ?: DEFAULT_DIFF_PATH
         inputs.outputPath = env.CRA_OUTPUT_PATH ?: DEFAULT_OUTPUT_PATH
-        inputs.maxDiffBytes = parsePositiveInt(env.CRA_MAX_DIFF_BYTES, DEFAULT_MAX_DIFF_BYTES)
-        inputs.maxDiffLines = parsePositiveInt(env.CRA_MAX_DIFF_LINES, DEFAULT_MAX_DIFF_LINES)
+        inputs.maxDiffBytes = InputParser.parsePositiveInt(env.CRA_MAX_DIFF_BYTES, DEFAULT_MAX_DIFF_BYTES)
+        inputs.maxDiffLines = InputParser.parsePositiveInt(env.CRA_MAX_DIFF_LINES, DEFAULT_MAX_DIFF_LINES)
         return inputs
     }
 
     static ActionInputs fromEnv() {
         return fromEnvironment(System.getenv())
-    }
-
-    private static int parsePositiveInt(String raw, int fallback) {
-        if (!raw?.trim()) return fallback
-        try {
-            int value = Integer.parseInt(raw.trim())
-            return value > 0 ? value : fallback
-        } catch (NumberFormatException ignored) {
-            return fallback
-        }
     }
 }
