@@ -1,5 +1,6 @@
 package com.boghus.codereview.github
 
+import com.boghus.codereview.review.ReviewLanguage
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
@@ -39,5 +40,27 @@ class InputParserTest {
     void 'does not truncate or overflow the parsed value'() {
         assertThat(InputParser.parsePositiveInt('2147483647', 100)).isEqualTo(Integer.MAX_VALUE)
         assertThat(InputParser.parsePositiveInt('2147483648', 100)).isEqualTo(100)
+    }
+
+    @Test
+    void 'parses Spanish language'() {
+        assertThat(InputParser.parseLanguage('es')).isEqualTo(ReviewLanguage.SPANISH)
+    }
+
+    @Test
+    void 'parses English language'() {
+        assertThat(InputParser.parseLanguage('en')).isEqualTo(ReviewLanguage.ENGLISH)
+    }
+
+    @Test
+    void 'parses language case insensitively and trims whitespace'() {
+        assertThat(InputParser.parseLanguage(' ES ')).isEqualTo(ReviewLanguage.SPANISH)
+    }
+
+    @Test
+    void 'falls back to English for blank or invalid language'() {
+        assertThat(InputParser.parseLanguage(null)).isEqualTo(ReviewLanguage.ENGLISH)
+        assertThat(InputParser.parseLanguage('')).isEqualTo(ReviewLanguage.ENGLISH)
+        assertThat(InputParser.parseLanguage('fr')).isEqualTo(ReviewLanguage.ENGLISH)
     }
 }
