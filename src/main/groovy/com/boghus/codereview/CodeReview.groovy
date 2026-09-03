@@ -72,7 +72,7 @@ class CodeReview {
             return
         }
 
-        String prompt = new ReviewPromptBuilder().build(rules, diff)
+        String prompt = new ReviewPromptBuilder().build(rules, diff, inputs.language)
 
         try {
             String text = provider.review(prompt)
