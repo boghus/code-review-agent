@@ -22,8 +22,6 @@ import java.util.regex.Matcher
 @CompileStatic
 class GeminiAdapter implements AiProvider {
 
-    static final String PROVIDER_NAME = 'gemini'
-
     private final Client client
     private final String model
 
@@ -52,8 +50,8 @@ class GeminiAdapter implements AiProvider {
     }
 
     @Override
-    String name() {
-        return PROVIDER_NAME
+    AiProviderType type() {
+        return AiProviderType.GEMINI
     }
 
     @Override

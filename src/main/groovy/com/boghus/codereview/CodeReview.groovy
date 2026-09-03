@@ -77,12 +77,12 @@ class CodeReview {
         try {
             String text = provider.review(prompt)
             writer.writeAiGenerated(inputs.outputPath, text)
-            println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.name()}/${inputs.model}."
+            println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.type().configName}/${inputs.model}."
         } catch (AiProviderException ex) {
             writer.writeFailure(inputs.outputPath, ex.userMessage)
-            println "Code Review Agent: ${provider.name()} failure [${ex.category}]: ${ex.cause?.message ?: ex.message}"
+            println "Code Review Agent: ${provider.type().configName} failure [${ex.category}]: ${ex.cause?.message ?: ex.message}"
         } catch (Exception ex) {
-            String userMessage = "The AI provider (**${provider.name()}**, model `${inputs.model}`) failed unexpectedly. Check the workflow log for the technical error and retry."
+            String userMessage = "The AI provider (**${provider.type().configName}**, model `${inputs.model}`) failed unexpectedly. Check the workflow log for the technical error and retry."
             writer.writeFailure(inputs.outputPath, userMessage)
             String safe = ex.message?.replace('`', "'") ?: 'unknown error'
             println "Code Review Agent: unexpected failure: ${safe}"

@@ -8,7 +8,7 @@ package com.boghus.codereview.provider
  * token counting) lives inside the adapter.
  */
 interface AiProvider {
-    String name()
+    AiProviderType type()
 
     String review(String prompt)
 }
