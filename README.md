@@ -15,8 +15,8 @@ the architecture is open to OpenAI, Anthropic and others.
 
 ## Data & privacy
 
-The action runs inside your GitHub Actions runner, but it is **not** a
-purely local tool. To produce a review it sends the following to the
+The action runs inside your GitHub Actions runner, but it is **not a
+purely local tool**. To produce a review it sends the following to the
 configured AI provider (`provider` input, default `gemini`):
 
 - The full PR diff (every added/removed line).
@@ -65,6 +65,38 @@ jobs:
           model: gemini-2.5-flash
           provider: gemini
 ```
+
+## GitHub permissions and token isolation
+
+The action requires only these GitHub permissions in the consumer workflow:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+```
+
+`contents: write`, `issues: write`, `actions: write` and other write
+permissions are not required by the current implementation.
+
+The `github-token` input is used exclusively by the GitHub comment steps
+(`peter-evans/find-comment` and `peter-evans/create-or-update-comment`).
+It is **not exposed to the Gradle/JVM process or any AI provider**. The
+AI step explicitly clears `GITHUB_TOKEN` before starting Gradle and only
+passes provider configuration through `CRA_*` variables.
+
+The security invariant is:
+
+```text
+GITHUB_TOKEN ∉ Gradle environment
+GITHUB_TOKEN ∉ AI provider
+GITHUB_TOKEN ∉ review prompt
+
+CRA_API_KEY → Gradle → AiProvider → configured AI provider
+```
+
+A CI security check verifies this boundary so a future provider or workflow
+change cannot accidentally reintroduce the GitHub token into the AI process.
 
 ## Setup
 
@@ -118,7 +150,7 @@ Drop a markdown file at `.github/code_review_rules.md` (default). It is
 not as data. Keep it short, factual and free of secrets — never put prompts
 that try to bypass the action's own system instructions in there.
 
-�️ **Trust boundary**: the rules file is read from the **PR base ref**
+⚠️ **Trust boundary**: the rules file is read from the **PR base ref**
 (the branch the PR targets), not from the PR head. A contributor cannot
 override the review contract by modifying the rules file inside their own
 PR. If a PR adds or modifies `.github/code_review_rules.md`, those changes
