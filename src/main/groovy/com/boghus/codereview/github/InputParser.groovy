@@ -1,5 +1,6 @@
 package com.boghus.codereview.github
 
+import com.boghus.codereview.review.ReviewLanguage
 import groovy.transform.CompileStatic
 
 /**
@@ -28,5 +29,9 @@ class InputParser {
         } catch (NumberFormatException ignored) {
             return fallback
         }
+    }
+
+    static ReviewLanguage parseLanguage(String raw) {
+        return raw?.trim()?.equalsIgnoreCase('es') ? ReviewLanguage.SPANISH : ReviewLanguage.ENGLISH
     }
 }
