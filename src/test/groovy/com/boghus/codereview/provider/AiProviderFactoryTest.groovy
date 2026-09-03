@@ -16,6 +16,14 @@ class AiProviderFactoryTest {
     }
 
     @Test
+    void 'creates a MiniMaxAdapter when provider is minimax'() {
+        AiProvider provider = AiProviderFactory.create('minimax', 'k', 'MiniMax-M3')
+
+        assertThat(provider).isInstanceOf(MiniMaxAdapter)
+        assertThat(provider.type()).isEqualTo(AiProviderType.MINIMAX)
+    }
+
+    @Test
     void 'creates a GeminiAdapter from the provider enum'() {
         AiProvider provider = AiProviderFactory.create(AiProviderType.GEMINI, 'k', 'm')
 
@@ -45,6 +53,6 @@ class AiProviderFactoryTest {
 
     @Test
     void 'supportedProviders exposes registered names'() {
-        assertThat(AiProviderFactory.supportedProviders()).contains('gemini')
+        assertThat(AiProviderFactory.supportedProviders()).containsExactlyInAnyOrder('gemini', 'minimax')
     }
 }
