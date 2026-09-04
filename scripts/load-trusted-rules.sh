@@ -3,7 +3,7 @@ set -euo pipefail
 
 RULES_RELATIVE="${RULES_RELATIVE:?RULES_RELATIVE is required}"
 BASE_SHA="${BASE_SHA:?BASE_SHA is required}"
-OUTPUT_FILE="${OUTPUT_FILE:?OUTPUT_FILE is required}"
+GITHUB_OUTPUT="${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"
 
 # rules-path is a Git tree path, not a filesystem path. Keep the accepted
 # contract deliberately narrow so the value can never become shell syntax,
@@ -47,5 +47,5 @@ if ! git show "${BASE_SHA}:${RULES_RELATIVE}" > "$RULES_FILE"; then
   exit 1
 fi
 
-echo "rules-path=${RULES_FILE}" >> "$OUTPUT_FILE"
+echo "rules-path=${RULES_FILE}" >> "$GITHUB_OUTPUT"
 echo "Loaded trusted rules from ${BASE_SHA}:${RULES_RELATIVE} (${ENTRY_TYPE}) → ${RULES_FILE}"
