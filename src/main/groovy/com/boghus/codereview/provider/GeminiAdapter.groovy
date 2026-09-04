@@ -69,7 +69,8 @@ class GeminiAdapter implements AiProvider {
         GenerateContentConfig config = GenerateContentConfig.builder()
             .systemInstruction(buildSystemInstruction(request))
             .temperature(0.1f)
-            .maxOutputTokens(4096)
+            // Keep enough headroom for the complete review structure and totals block.
+            .maxOutputTokens(8192)
             .build()
 
         try {
@@ -95,17 +96,21 @@ class GeminiAdapter implements AiProvider {
     }
 
     static Content buildSystemInstruction(ReviewRequest request) {
-        return Content.fromParts(
-            Part.fromText("""${request.systemInstructions}
-
-${request.developerInstructions}""")
-        )
+        List<String> sections = []
+        if (request.systemInstructions?.trim()) {
+            sections << request.systemInstructions
+        }
+        if (request.developerInstructions?.trim()) {
+            sections.add("=== DEVELOPER INSTRUCTIONS ===\n${request.developerInstructions}".toString())
+        }
+        String content = sections.join('\n\n')
+        return Content.fromParts(Part.fromText(content))
     }
 
     static String buildUserContent(ReviewRequest request) {
-        return """${request.prompt}
-
-${request.untrustedRepositoryContent}"""
+        [request.prompt, request.untrustedRepositoryContent]
+            .findAll { it?.trim() }
+            .join('\n\n')
     }
 
     /**
