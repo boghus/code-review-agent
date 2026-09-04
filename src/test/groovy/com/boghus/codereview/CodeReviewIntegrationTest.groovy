@@ -3,7 +3,10 @@ package com.boghus.codereview
 import com.boghus.codereview.github.ActionInputs
 import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
+import com.boghus.codereview.provider.AiProviderCapabilities
 import com.boghus.codereview.provider.AiProviderType
+import com.boghus.codereview.provider.ReviewRequest
+import com.boghus.codereview.review.ReviewPromptBuilder
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
@@ -19,7 +22,11 @@ class CodeReviewIntegrationTest {
         @Override
         AiProviderType type() { AiProviderType.GEMINI }
 
-        String review(String prompt) {
+        @Override
+        AiProviderCapabilities capabilities() { AiProviderCapabilities.PROMPT_ONLY }
+
+        @Override
+        String review(ReviewRequest request) {
             return '## 🤖 Code Review Agent by boghus\n\nNo findings.\n'
         }
     }
@@ -47,8 +54,8 @@ class CodeReviewIntegrationTest {
             outputPath: output.absolutePath
         )
 
-        String prompt = new com.boghus.codereview.review.ReviewPromptBuilder().build('', diff.text)
-        String text = new FakeProvider().review(prompt)
+        ReviewRequest request = new ReviewPromptBuilder().buildRequest('', diff.text)
+        String text = new FakeProvider().review(request)
         new ReviewReportWriter().writeAiGenerated(output.absolutePath, text)
 
         assertThat(output.text)
