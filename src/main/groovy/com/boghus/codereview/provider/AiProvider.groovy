@@ -3,12 +3,14 @@ package com.boghus.codereview.provider
 /**
  * Provider-agnostic AI client. Implementations must be stateless and thread-safe.
  *
- * The contract is intentionally narrow: receive a prompt, return the raw
- * review text. Anything provider-specific (retries, JSON schemas, streaming,
- * token counting) lives inside the adapter.
+ * The core keeps trusted instructions separate from untrusted repository
+ * content. Adapters map those channels to the strongest instruction mechanism
+ * supported by their provider/model.
  */
 interface AiProvider {
     AiProviderType type()
 
-    String review(String prompt)
+    AiProviderCapabilities capabilities()
+
+    String review(ReviewRequest request)
 }

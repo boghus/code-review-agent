@@ -3,9 +3,11 @@ package com.boghus.codereview
 import com.boghus.codereview.github.ActionInputs
 import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
+import com.boghus.codereview.provider.AiProviderCapabilities
 import com.boghus.codereview.provider.AiProviderErrorCategory
 import com.boghus.codereview.provider.AiProviderException
 import com.boghus.codereview.provider.AiProviderType
+import com.boghus.codereview.provider.ReviewRequest
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
@@ -21,7 +23,11 @@ class CodeReviewFailurePrivacyTest {
         @Override
         AiProviderType type() { AiProviderType.GEMINI }
 
-        String review(String prompt) {
+        @Override
+        AiProviderCapabilities capabilities() { AiProviderCapabilities.PROMPT_ONLY }
+
+        @Override
+        String review(ReviewRequest request) {
             throw new AiProviderException(
                 AiProviderErrorCategory.UNKNOWN,
                 'The AI provider failed with an internal error.',
@@ -58,7 +64,7 @@ class CodeReviewFailurePrivacyTest {
         // contains the safe summary but NOT the raw cause message.
         AiProvider provider = new ThrowingProvider()
         try {
-            provider.review('')
+            provider.review(new ReviewRequest('', '', '', ''))
         } catch (AiProviderException ex) {
             new ReviewReportWriter().writeFailure(output.absolutePath, ex.userMessage)
         }

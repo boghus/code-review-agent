@@ -5,20 +5,21 @@ import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
 import com.boghus.codereview.provider.AiProviderException
 import com.boghus.codereview.provider.AiProviderFactory
+import com.boghus.codereview.provider.ReviewRequest
 import com.boghus.codereview.review.DiffAnalyzer
 import com.boghus.codereview.review.DiffSizeGuard
 import com.boghus.codereview.review.ReviewPromptBuilder
 import groovy.transform.CompileStatic
 
 /**
- * Orchestrator. Reads inputs, builds the prompt, calls the AI provider and
- * writes the resulting markdown. Posting the comment is delegated to the
- * composite action steps (peter-evans).
+ * Orchestrator. Reads inputs, builds the structured review request, calls the
+ * AI provider and writes the resulting markdown. Posting the comment is
+ * delegated to the composite action steps (peter-evans).
  *
  * <p>The orchestrator is provider-agnostic: it only knows about
  * {@link AiProvider} and {@link AiProviderException}. Adapters are
- * responsible for translating their own SDK-specific failures into
- * {@link AiProviderException} with a safe user-facing message.</p>
+ * responsible for mapping trusted instructions and untrusted repository
+ * content to their provider's available channels.</p>
  *
  * <p>The orchestrator never throws on AI-side failures. It writes a failure
  * report and exits 0 so the PR is never blocked by an unavailable provider.</p>
@@ -72,10 +73,11 @@ class CodeReview {
             return
         }
 
-        String prompt = new ReviewPromptBuilder().build(rules, diff, inputs.language)
+        ReviewPromptBuilder promptBuilder = new ReviewPromptBuilder()
+        ReviewRequest request = promptBuilder.buildRequest(rules, diff, inputs.language)
 
         try {
-            String text = provider.review(prompt)
+            String text = provider.review(request)
             writer.writeAiGenerated(inputs.outputPath, text)
             println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.type().configName}/${inputs.model}."
         } catch (AiProviderException ex) {

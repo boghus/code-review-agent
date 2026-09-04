@@ -2,10 +2,12 @@ package com.boghus.codereview.provider
 
 import com.google.genai.Client
 import com.google.genai.errors.ApiException
+import com.google.genai.types.Content
 import com.google.genai.types.GenerateContentConfig
 import com.google.genai.types.GenerateContentResponse
 import com.google.genai.types.HttpOptions
 import com.google.genai.types.HttpRetryOptions
+import com.google.genai.types.Part
 import groovy.transform.CompileStatic
 
 import java.util.regex.Matcher
@@ -13,11 +15,10 @@ import java.util.regex.Matcher
 /**
  * Gemini implementation of {@link AiProvider}.
  *
- * Wraps the Google GenAI Java SDK. Configures deterministic-ish generation
- * (low temperature) and a bounded retry policy for transient HTTP errors.
- *
- * Retries are delegated to the SDK so they cover rate limits and gateway
- * failures without us re-implementing backoff.
+ * Gemini exposes a system-instruction channel but not a separate developer
+ * channel through GenerateContentConfig. Trusted system and developer
+ * instructions are therefore combined into systemInstruction, while the
+ * prompt and untrusted repository content remain in the user content.
  */
 @CompileStatic
 class GeminiAdapter implements AiProvider {
@@ -55,14 +56,24 @@ class GeminiAdapter implements AiProvider {
     }
 
     @Override
-    String review(String prompt) {
+    AiProviderCapabilities capabilities() {
+        return AiProviderCapabilities.SYSTEM_PROMPT
+    }
+
+    @Override
+    String review(ReviewRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException('Review request must not be null.')
+        }
+
         GenerateContentConfig config = GenerateContentConfig.builder()
+            .systemInstruction(buildSystemInstruction(request))
             .temperature(0.1f)
             .maxOutputTokens(4096)
             .build()
 
         try {
-            GenerateContentResponse response = client.models.generateContent(model, prompt, config)
+            GenerateContentResponse response = client.models.generateContent(model, buildUserContent(request), config)
             String text = response.text()?.trim()
             if (!text) {
                 throw new AiProviderException(
@@ -81,6 +92,20 @@ class GeminiAdapter implements AiProvider {
                 ex
             )
         }
+    }
+
+    static Content buildSystemInstruction(ReviewRequest request) {
+        return Content.fromParts(
+            Part.fromText("""${request.systemInstructions}
+
+${request.developerInstructions}""")
+        )
+    }
+
+    static String buildUserContent(ReviewRequest request) {
+        return """${request.prompt}
+
+${request.untrustedRepositoryContent}"""
     }
 
     /**
