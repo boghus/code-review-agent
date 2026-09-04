@@ -28,6 +28,9 @@ jobs:
       - name: Verify GitHub token isolation
         shell: bash
         run: bash scripts/security-check-github-token.sh
+      - name: Verify rules-path shell injection protection
+        shell: bash
+        run: bash scripts/security-check-rules-path.sh
 
   self-review:
     name: Self-review with Code Review Agent
