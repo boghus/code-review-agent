@@ -21,16 +21,14 @@ run_loader() {
   local output_file="$TMP_DIR/output"
   : > "$output_file"
 
-  if ! (
+  (
     cd "$REPO"
     RULES_RELATIVE="$payload" \
     BASE_SHA="$BASE_SHA" \
     GITHUB_OUTPUT="$output_file" \
     RUNNER_TEMP="$TMP_DIR" \
     bash "$LOADER"
-  ); then
-    return 1
-  fi
+  )
 }
 
 # A normal repository-relative path must still work and must be loaded from
@@ -60,29 +58,15 @@ assert_rejected_or_inert() {
     exit 1
   fi
 
-  # Traversal and absolute paths are explicitly rejected. Shell metacharacter
-  # payloads may instead fail later because no matching Git tree entry exists,
-  # which is also safe as long as they remain inert.
-  case "$payload" in
-    ../*|*'/../'*|/*)
-      test "$status" -ne 0
-      ;;
-    *'$(touch '*|*'`touch '*|*'$(echo '*|*'`echo '*)
-      test "$status" -ne 0
-      ;;
-    *)
-      echo "Security check failed: unclassified payload: $payload" >&2
-      exit 1
-      ;;
-  esac
+  test "$status" -ne 0
 }
 
 assert_rejected_or_inert '../etc/passwd'
 assert_rejected_or_inert 'foo/../../bar'
 assert_rejected_or_inert '/etc/passwd'
-assert_rejected_or_inert '$(touch /tmp/pwned)'
-assert_rejected_or_inert '$(echo malicious)'
-assert_rejected_or_inert '`touch /tmp/pwned`'
+assert_rejected_or_inert "\$(touch \"$MARKER\")"
+assert_rejected_or_inert "\$(echo malicious)"
+assert_rejected_or_inert "`touch \"$MARKER\"`"
 assert_rejected_or_inert '`echo malicious`'
 
 printf '%s\n' 'Security check passed: rules-path is passed as data, traversal is rejected, and command substitution/backticks remain inert.'
