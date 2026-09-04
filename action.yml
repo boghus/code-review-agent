@@ -87,14 +87,6 @@ runs:
           echo "output-path=$(resolve_runner "$OUTPUT_RAW")"
         } >> "$GITHUB_OUTPUT"
 
-    - name: Read repository rules from the base ref
-      id: load-rules
-      shell: bash
-      env:
-        BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        RULES_RELATIVE: ${{ inputs.rules-path }}
-      run: bash "$GITHUB_ACTION_PATH/scripts/load-trusted-rules.sh"
-
     - name: Build PR diff
       shell: bash
       env:
@@ -112,7 +104,8 @@ runs:
         CRA_PROVIDER: ${{ inputs.provider }}
         CRA_MODEL: ${{ inputs.model }}
         CRA_LANGUAGE: ${{ inputs.language }}
-        CRA_RULES_PATH: ${{ steps.load-rules.outputs.rules-path }}
+        CRA_RULES_PATH: ${{ inputs.rules-path }}
+        CRA_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         CRA_DIFF_PATH: ${{ steps.resolve-paths.outputs.diff-path }}
         CRA_OUTPUT_PATH: ${{ steps.resolve-paths.outputs.output-path }}
         CRA_ACTION_REF: ${{ github.action_ref || github.event.pull_request.head.ref || github.ref_name }}
