@@ -69,7 +69,8 @@ class GeminiAdapter implements AiProvider {
         GenerateContentConfig config = GenerateContentConfig.builder()
             .systemInstruction(buildSystemInstruction(request))
             .temperature(0.1f)
-            .maxOutputTokens(4096)
+            // Keep enough headroom for the complete review structure and totals block.
+            .maxOutputTokens(8192)
             .build()
 
         try {
