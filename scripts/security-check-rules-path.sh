@@ -39,6 +39,7 @@ test -n "$RULES_FILE"
 test "$(cat "$RULES_FILE")" = '# trusted rules'
 
 MARKER="$TMP_DIR/pwned"
+BACKTICK_PAYLOAD='`touch "'"$MARKER"'"`'
 
 assert_rejected_or_inert() {
   local payload="$1"
@@ -66,7 +67,7 @@ assert_rejected_or_inert 'foo/../../bar'
 assert_rejected_or_inert '/etc/passwd'
 assert_rejected_or_inert "\$(touch \"$MARKER\")"
 assert_rejected_or_inert "\$(echo malicious)"
-assert_rejected_or_inert "`touch \"$MARKER\"`"
+assert_rejected_or_inert "$BACKTICK_PAYLOAD"
 assert_rejected_or_inert '`echo malicious`'
 
 printf '%s\n' 'Security check passed: rules-path is passed as data, traversal is rejected, and command substitution/backticks remain inert.'
