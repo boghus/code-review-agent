@@ -13,9 +13,13 @@ import groovy.transform.CompileStatic
 class TrustedRulesLoader {
 
     static String load(String baseSha, String rulesPath, File tempDirectory) {
+        load(baseSha, rulesPath, tempDirectory, new File('.').canonicalFile)
+    }
+
+    static String load(String baseSha, String rulesPath, File tempDirectory, File repositoryDirectory) {
         validate(baseSha, rulesPath)
 
-        String treeOutput = git(['ls-tree', '-z', baseSha, '--', rulesPath])
+        String treeOutput = git(['ls-tree', '-z', baseSha, '--', rulesPath], repositoryDirectory)
         String entryType = treeOutput.split('\u0000', -1)
             .findResult { String entry ->
                 int tab = entry.indexOf('\t')
@@ -34,6 +38,7 @@ class TrustedRulesLoader {
 
         File rulesFile = File.createTempFile('cra-rules-', '.md', tempDirectory)
         Process process = new ProcessBuilder('git', 'show', "${baseSha}:${rulesPath}")
+            .directory(repositoryDirectory)
             .redirectErrorStream(false)
             .start()
         process.inputStream.withStream { InputStream input ->
@@ -67,8 +72,10 @@ class TrustedRulesLoader {
         }
     }
 
-    private static String git(List<String> arguments) {
-        Process process = new ProcessBuilder(['git'] + arguments).start()
+    private static String git(List<String> arguments, File repositoryDirectory) {
+        Process process = new ProcessBuilder(['git'] + arguments)
+            .directory(repositoryDirectory)
+            .start()
         String output = process.inputStream.getText('UTF-8')
         String error = process.errorStream.getText('UTF-8')
         int exitCode = process.waitFor()
