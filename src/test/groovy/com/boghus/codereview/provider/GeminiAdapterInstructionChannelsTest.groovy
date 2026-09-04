@@ -23,6 +23,7 @@ class GeminiAdapterInstructionChannelsTest {
 
         assertThat(systemInstruction)
             .contains('SYSTEM\nLINE 2')
+            .contains('=== DEVELOPER INSTRUCTIONS ===')
             .contains('DEVELOPER\n    INDENTED')
             .doesNotContain(diff)
     }
@@ -51,7 +52,7 @@ ${diff}""")
     }
 
     @Test
-    void 'preserves multiline whitespace in trusted and untrusted content'() {
+    void 'preserves multiline whitespace and ordering in trusted and untrusted content'() {
         ReviewRequest request = new ReviewRequest(
             'system line 1\n\nsystem line 3',
             'developer line 1\n    indented',
@@ -62,7 +63,18 @@ ${diff}""")
         String systemInstruction = GeminiAdapter.buildSystemInstruction(request).parts().get().get(0).text().get()
         String userContent = GeminiAdapter.buildUserContent(request)
 
-        assertThat(systemInstruction).isEqualTo('system line 1\n\nsystem line 3\n\ndeveloper line 1\n    indented')
+        assertThat(systemInstruction).isEqualTo('system line 1\n\nsystem line 3\n\n=== DEVELOPER INSTRUCTIONS ===\ndeveloper line 1\n    indented')
         assertThat(userContent).isEqualTo('prompt line 1\n\nprompt line 3\n\ndiff line 1\n    indented diff\n\ndiff line 4')
+    }
+
+    @Test
+    void 'omits empty instruction and content sections'() {
+        ReviewRequest request = new ReviewRequest('', 'DEVELOPER', '', 'DIFF')
+
+        String systemInstruction = GeminiAdapter.buildSystemInstruction(request).parts().get().get(0).text().get()
+        String userContent = GeminiAdapter.buildUserContent(request)
+
+        assertThat(systemInstruction).isEqualTo('=== DEVELOPER INSTRUCTIONS ===\nDEVELOPER')
+        assertThat(userContent).isEqualTo('DIFF')
     }
 }
