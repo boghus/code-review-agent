@@ -36,13 +36,10 @@ if [[ "$ENTRY_TYPE" != "blob" ]]; then
 fi
 
 RULES_FILE="$(mktemp -p "${RUNNER_TEMP:-/tmp}" cra-rules-XXXXXX.md)"
-cleanup() {
-  rm -f "$RULES_FILE"
-}
-trap cleanup EXIT
 chmod 0644 "$RULES_FILE"
 
 if ! git show "${BASE_SHA}:${RULES_RELATIVE}" > "$RULES_FILE"; then
+  rm -f "$RULES_FILE"
   echo "::error::git show failed for ${BASE_SHA}:${RULES_RELATIVE}" >&2
   exit 1
 fi
