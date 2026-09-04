@@ -70,7 +70,9 @@ class TrustedRulesLoaderTest {
     }
 
     private static String git(File directory, String... arguments) {
-        Process process = new ProcessBuilder(['git'] + arguments)
+        List<String> command = ['git']
+        command.addAll(arguments.toList())
+        Process process = new ProcessBuilder(command)
             .directory(directory)
             .start()
         String output = process.inputStream.getText('UTF-8')
