@@ -95,17 +95,21 @@ class GeminiAdapter implements AiProvider {
     }
 
     static Content buildSystemInstruction(ReviewRequest request) {
-        return Content.fromParts(
-            Part.fromText("""${request.systemInstructions}
-
-${request.developerInstructions}""")
-        )
+        List<String> sections = []
+        if (request.systemInstructions?.trim()) {
+            sections << request.systemInstructions
+        }
+        if (request.developerInstructions?.trim()) {
+            sections << "=== DEVELOPER INSTRUCTIONS ===\n${request.developerInstructions}"
+        }
+        String content = sections.join('\n\n')
+        return Content.fromParts(Part.fromText(content))
     }
 
     static String buildUserContent(ReviewRequest request) {
-        return """${request.prompt}
-
-${request.untrustedRepositoryContent}"""
+        [request.prompt, request.untrustedRepositoryContent]
+            .findAll { it?.trim() }
+            .join('\n\n')
     }
 
     /**
