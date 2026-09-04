@@ -13,13 +13,19 @@ import groovy.transform.CompileStatic
 class TrustedRulesLoader {
 
     static String load(String baseSha, String rulesPath, File tempDirectory) {
-        validate(rulesPath)
+        validate(baseSha, rulesPath)
 
-        String entryType = git(baseSha, ['ls-tree', baseSha, '--', rulesPath], null)
-            .readLines()
-            .findResult { String line ->
-                List<String> fields = line.split(/\s+/, 4) as List<String>
-                fields.size() == 4 && fields[3] == rulesPath ? fields[1] : null
+        String treeOutput = git(['ls-tree', '-z', baseSha, '--', rulesPath])
+        String entryType = treeOutput.split('\u0000', -1)
+            .findResult { String entry ->
+                int tab = entry.indexOf('\t')
+                if (tab < 0) {
+                    return null
+                }
+                String metadata = entry.substring(0, tab)
+                String path = entry.substring(tab + 1)
+                List<String> fields = metadata.split(' ') as List<String>
+                fields.size() == 3 && path == rulesPath ? fields[1] : null
             }
 
         if (entryType != 'blob') {
@@ -27,23 +33,29 @@ class TrustedRulesLoader {
         }
 
         File rulesFile = File.createTempFile('cra-rules-', '.md', tempDirectory)
-        rulesFile.withOutputStream { OutputStream output ->
-            Process process = new ProcessBuilder('git', 'show', "${baseSha}:${rulesPath}")
-                .redirectErrorStream(false)
-                .start()
-            process.inputStream.transferTo(output)
-            String error = process.errorStream.getText('UTF-8')
-            int exitCode = process.waitFor()
-            if (exitCode != 0) {
-                rulesFile.delete()
-                throw new IllegalStateException("Unable to read trusted rules from base ref '${baseSha}': ${error.trim()}")
+        Process process = new ProcessBuilder('git', 'show', "${baseSha}:${rulesPath}")
+            .redirectErrorStream(false)
+            .start()
+        process.inputStream.withStream { InputStream input ->
+            rulesFile.withOutputStream { OutputStream output ->
+                input.transferTo(output)
             }
         }
+        String error = process.errorStream.getText('UTF-8')
+        int exitCode = process.waitFor()
+        if (exitCode != 0) {
+            rulesFile.delete()
+            throw new IllegalStateException("Unable to read trusted rules from base ref '${baseSha}': ${error.trim()}")
+        }
+
         rulesFile.setReadable(true, true)
-        return rulesFile.text
+        return rulesFile.getText('UTF-8')
     }
 
-    static void validate(String rulesPath) {
+    static void validate(String baseSha, String rulesPath) {
+        if (!baseSha?.trim()) {
+            throw new IllegalArgumentException('BASE_SHA is required to load trusted rules')
+        }
         if (!rulesPath?.trim() || rulesPath.startsWith('/') || rulesPath.startsWith('-')) {
             throw new IllegalArgumentException("rules-path must be a non-empty repository-relative path and must not start with '-': '${rulesPath}'")
         }
@@ -55,12 +67,8 @@ class TrustedRulesLoader {
         }
     }
 
-    private static String git(String baseSha, List<String> arguments, File workingDirectory) {
-        ProcessBuilder builder = new ProcessBuilder(['git'] + arguments)
-        if (workingDirectory != null) {
-            builder.directory(workingDirectory)
-        }
-        Process process = builder.start()
+    private static String git(List<String> arguments) {
+        Process process = new ProcessBuilder(['git'] + arguments).start()
         String output = process.inputStream.getText('UTF-8')
         String error = process.errorStream.getText('UTF-8')
         int exitCode = process.waitFor()
