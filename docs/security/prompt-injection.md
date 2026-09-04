@@ -6,9 +6,9 @@ Pull request content is untrusted input. A contributor can place instructions in
 
 ```mermaid
 flowchart TD
-    A[Application-controlled instructions] --> B[System channel]
-    A --> C[Developer channel]
-    A --> D[Review prompt]
+    A[Application-controlled instructions] -->|Mapped by Gemini adapter| B[System channel]
+    A -->|Mapped when supported| C[Developer channel]
+    A -->|Trusted review configuration| D[Review prompt]
     E[Repository rules from base ref] --> D
     D --> F[User content]
     G[PR diff and repository content] --> F
