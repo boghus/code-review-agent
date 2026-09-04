@@ -73,7 +73,9 @@ class TrustedRulesLoader {
     }
 
     private static String git(List<String> arguments, File repositoryDirectory) {
-        Process process = new ProcessBuilder(['git'] + arguments)
+        List<String> command = ['git']
+        command.addAll(arguments)
+        Process process = new ProcessBuilder(command)
             .directory(repositoryDirectory)
             .start()
         String output = process.inputStream.getText('UTF-8')
