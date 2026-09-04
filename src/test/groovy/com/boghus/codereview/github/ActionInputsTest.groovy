@@ -14,6 +14,7 @@ class ActionInputsTest {
         assertThat(inputs.provider).isEqualTo(ActionInputs.DEFAULT_PROVIDER)
         assertThat(inputs.model).isEqualTo(ActionInputs.DEFAULT_MODEL)
         assertThat(inputs.rulesPath).isEqualTo(ActionInputs.DEFAULT_RULES_PATH)
+        assertThat(inputs.baseSha).isNull()
         assertThat(inputs.diffPath).isEqualTo(ActionInputs.DEFAULT_DIFF_PATH)
         assertThat(inputs.outputPath).isEqualTo(ActionInputs.DEFAULT_OUTPUT_PATH)
         assertThat(inputs.language).isEqualTo(ReviewLanguage.ENGLISH)
@@ -29,6 +30,7 @@ class ActionInputsTest {
             CRA_MODEL         : 'gemini-test',
             CRA_LANGUAGE     : 'es',
             CRA_RULES_PATH    : '/tmp/rules.md',
+            CRA_BASE_SHA      : 'abc123',
             CRA_DIFF_PATH     : '/tmp/diff',
             CRA_OUTPUT_PATH   : '/tmp/out.md',
             CRA_MAX_DIFF_BYTES: '500000',
@@ -41,6 +43,7 @@ class ActionInputsTest {
         assertThat(inputs.model).isEqualTo('gemini-test')
         assertThat(inputs.language).isEqualTo(ReviewLanguage.SPANISH)
         assertThat(inputs.rulesPath).isEqualTo('/tmp/rules.md')
+        assertThat(inputs.baseSha).isEqualTo('abc123')
         assertThat(inputs.diffPath).isEqualTo('/tmp/diff')
         assertThat(inputs.outputPath).isEqualTo('/tmp/out.md')
         assertThat(inputs.maxDiffBytes).isEqualTo(500_000)
