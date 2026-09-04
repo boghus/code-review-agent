@@ -23,7 +23,7 @@ inputs:
     required: false
     default: 'en'
   rules-path:
-    description: 'Path to the markdown file containing repository-specific review rules.'
+    description: 'Repository-relative Git tree path to trusted review rules. Absolute paths, leading '-' and '.', '..' path components are rejected. Rules are always read from the PR base ref.'
     required: false
     default: '.github/code_review_rules.md'
   diff-path:
@@ -81,18 +81,10 @@ runs:
             echo "$WORKSPACE/$raw"
           fi
         }
-        # rules-path is intentionally NOT resolved against the workspace —
-        # the trusted rules are materialised into a runner-controlled temp
-        # directory by the next step, so the consumer's rules-path value
-        # never becomes a destination on a filesystem the PR can manipulate.
-        if [[ "${{ inputs.rules-path }}" == /* ]]; then
-          echo "::error::rules-path must be a path inside the repository, not an absolute filesystem path. Got: ${{ inputs.rules-path }}" >&2
-          exit 1
-        fi
+
         {
           echo "diff-path=$(resolve_runner "$DIFF_RAW")"
           echo "output-path=$(resolve_runner "$OUTPUT_RAW")"
-          echo "rules-relative=${{ inputs.rules-path }}"
         } >> "$GITHUB_OUTPUT"
 
     - name: Read repository rules from the base ref
@@ -100,60 +92,8 @@ runs:
       shell: bash
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        RULES_RELATIVE: ${{ steps.resolve-paths.outputs.rules-relative }}
-      run: |
-        # Security-critical: the repository rules file is presented to the
-        # model as TRUSTED instructions. We therefore read it from the PR
-        # base ref and materialise it into a runner-controlled temp
-        # directory (NOT into the workspace the PR controls).
-        #
-        # The trust boundary is:
-        #
-        #     BASE_SHA (trusted git tree)
-        #          │
-        #          ├── git ls-tree   → validate entry type (blob)
-        #          ├── git show      → read raw bytes
-        #          └── write to /tmp file created by mktemp
-        #                              │
-        #                              ▼
-        #                       Gradle / orchestrator
-        #
-        # The PR-controlled workspace is never the destination of this
-        # write. Even if the PR pre-creates a symlink at the same path
-        # under the workspace, our output lives elsewhere and the
-        # orchestrator reads only what we just wrote.
-        #
-        # Defences, in order:
-        #   1. Reject rules-path containing '..' or starting with '-'.
-        #   2. Verify the entry is a regular blob in the base tree
-        #      (not a symlink, not a submodule, not a directory).
-        #   3. Materialise into a freshly-created mktemp file under
-        #      $RUNNER_TEMP — never into the workspace.
-        #   4. Any failure aborts the action. We never silently fall back
-        #      to "review with no rules", because that would let a
-        #      misconfiguration downgrade the review contract.
-        if [[ "${RULES_RELATIVE}" == -* ]] || [[ "${RULES_RELATIVE}" == *..* ]]; then
-          echo "::error::rules-path contains an unsafe component: '${RULES_RELATIVE}'" >&2
-          exit 1
-        fi
-        ENTRY_TYPE=$(git ls-tree "${BASE_SHA}" "${RULES_RELATIVE}" -- | awk '{print $2}')
-        if [[ -z "${ENTRY_TYPE}" ]]; then
-          echo "::error::No entry '${RULES_RELATIVE}' in base ref ${BASE_SHA}. rules-path must point to an existing file." >&2
-          exit 1
-        fi
-        if [[ "${ENTRY_TYPE}" != "blob" ]]; then
-          echo "::error::rules-path '${RULES_RELATIVE}' is a ${ENTRY_TYPE} in base ref ${BASE_SHA}, not a regular file. Symlinks and submodules are not allowed." >&2
-          exit 1
-        fi
-        RULES_FILE="$(mktemp -p "${RUNNER_TEMP:-/tmp}" cra-rules-XXXXXX.md)"
-        chmod 0644 "${RULES_FILE}"
-        if ! git show "${BASE_SHA}:${RULES_RELATIVE}" > "${RULES_FILE}"; then
-          rm -f "${RULES_FILE}"
-          echo "::error::git show failed for ${BASE_SHA}:${RULES_RELATIVE}" >&2
-          exit 1
-        fi
-        echo "rules-path=${RULES_FILE}" >> "$GITHUB_OUTPUT"
-        echo "Loaded trusted rules from ${BASE_SHA}:${RULES_RELATIVE} (${ENTRY_TYPE}) → ${RULES_FILE}"
+        RULES_RELATIVE: ${{ inputs.rules-path }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/load-trusted-rules.sh"
 
     - name: Build PR diff
       shell: bash
