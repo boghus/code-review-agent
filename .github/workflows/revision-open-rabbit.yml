@@ -1,0 +1,31 @@
+name: Revision OpenRabbit
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: revision-open-rabbit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
+    steps:
+      - name: OpenRabbit review
+        uses: aryanbrite/openrabbit@a05dc7e11748a93a3518553c3de82a98eba9df0f # v0.8.7
+        with:
+          github_token: ${{ github.token }}
+          llm_provider: openrouter
+          llm_api_url: https://openrouter.ai/api/v1
+          llm_api_key: ${{ secrets.OPENROUTER_API_KEY }}
+          llm_model: openrouter/free
+          review_mode: both
+          tone_mode: balanced
+          review_lens: default
+          debiased_mode: "false"
