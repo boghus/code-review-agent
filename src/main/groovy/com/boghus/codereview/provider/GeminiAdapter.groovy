@@ -101,7 +101,7 @@ class GeminiAdapter implements AiProvider {
             sections << request.systemInstructions
         }
         if (request.developerInstructions?.trim()) {
-            sections << "=== DEVELOPER INSTRUCTIONS ===\n${request.developerInstructions}"
+            sections.add("=== DEVELOPER INSTRUCTIONS ===\n${request.developerInstructions}".toString())
         }
         String content = sections.join('\n\n')
         return Content.fromParts(Part.fromText(content))
