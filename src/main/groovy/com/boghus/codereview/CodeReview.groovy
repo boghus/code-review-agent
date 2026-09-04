@@ -52,7 +52,7 @@ class CodeReview {
         } catch (IllegalArgumentException | IllegalStateException ex) {
             writer.writeMisconfigured(inputs.outputPath, ex.message)
             println "Code Review Agent: trusted rules could not be loaded: ${ex.message}"
-            return
+            throw ex
         }
 
         String diff = diffFile.getText('UTF-8')
