@@ -144,6 +144,29 @@ ${request.untrustedRepositoryContent}"""
         return msg.replace('`', "'")
     }
 
+    /**
+     * Produces a useful runner-log message for transport/runtime failures
+     * without exposing secrets from exception text.
+     */
+    static String safeRuntimeMessageForLog(Throwable exception) {
+        if (exception == null) return 'unknown error'
+
+        List<String> messages = []
+        Throwable current = exception
+        int depth = 0
+        while (current != null && depth < 5) {
+            String message = current.message?.replace('`', "'")?.trim()
+            if (message) {
+                messages << "${current.class.simpleName}: ${message}"
+            } else {
+                messages << current.class.simpleName
+            }
+            current = current.cause
+            depth++
+        }
+        return messages.join(' -> ')
+    }
+
     private static boolean isQuotaError(ApiException exception) {
         return extractHttpStatus(exception) == 429
     }
