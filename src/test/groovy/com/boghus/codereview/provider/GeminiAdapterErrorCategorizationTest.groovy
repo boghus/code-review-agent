@@ -83,6 +83,38 @@ class GeminiAdapterErrorCategorizationTest {
     }
 
     @Test
+    void 'safeRuntimeMessageForLog includes exception chain details'() {
+        RuntimeException cause = new RuntimeException('HTTP request failed: connection reset')
+        RuntimeException exception = new RuntimeException('Failed to execute HTTP request.', cause)
+
+        String logSafe = GeminiAdapter.safeRuntimeMessageForLog(exception)
+
+        assertThat(logSafe)
+            .contains('RuntimeException: Failed to execute HTTP request.')
+            .contains('RuntimeException: HTTP request failed: connection reset')
+            .doesNotContain('`')
+    }
+
+    @Test
+    void 'safeRuntimeMessageForLog handles null and limits the cause chain'() {
+        assertThat(GeminiAdapter.safeRuntimeMessageForLog(null)).isEqualTo('unknown error')
+
+        Throwable deepest = new RuntimeException('level 6')
+        Throwable level5 = new RuntimeException('level 5', deepest)
+        Throwable level4 = new RuntimeException('level 4', level5)
+        Throwable level3 = new RuntimeException('level 3', level4)
+        Throwable level2 = new RuntimeException('level 2', level3)
+        Throwable level1 = new RuntimeException('level 1', level2)
+
+        String logSafe = GeminiAdapter.safeRuntimeMessageForLog(level1)
+
+        assertThat(logSafe)
+            .contains('level 1')
+            .contains('level 5')
+            .doesNotContain('level 6')
+    }
+
+    @Test
     void 'AiProviderException carries typed category, user message and cause'() {
         RuntimeException cause = new RuntimeException('inner')
         AiProviderException ex = new AiProviderException(
