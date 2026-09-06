@@ -70,6 +70,7 @@ runs:
       shell: bash
       env:
         WORKSPACE: ${{ github.workspace }}
+        RULES_RAW: ${{ inputs.rules-path }}
         DIFF_RAW: ${{ inputs.diff-path }}
         OUTPUT_RAW: ${{ inputs.output-path }}
       run: |
@@ -85,14 +86,14 @@ runs:
         # the trusted rules are materialised into a runner-controlled temp
         # directory by the next step, so the consumer's rules-path value
         # never becomes a destination on a filesystem the PR can manipulate.
-        if [[ "${{ inputs.rules-path }}" == /* ]]; then
-          echo "::error::rules-path must be a path inside the repository, not an absolute filesystem path. Got: ${{ inputs.rules-path }}" >&2
+        if [[ "$RULES_RAW" == /* ]]; then
+          echo "::error::rules-path must be a path inside the repository, not an absolute filesystem path. Got: $RULES_RAW" >&2
           exit 1
         fi
         {
           echo "diff-path=$(resolve_runner "$DIFF_RAW")"
           echo "output-path=$(resolve_runner "$OUTPUT_RAW")"
-          echo "rules-relative=${{ inputs.rules-path }}"
+          echo "rules-relative=$RULES_RAW"
         } >> "$GITHUB_OUTPUT"
 
     - name: Read repository rules from the base ref
