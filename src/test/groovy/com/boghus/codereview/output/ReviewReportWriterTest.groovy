@@ -186,16 +186,16 @@ class ReviewReportWriterTest {
     }
 
     @Test
-    void 'writeMisconfigured contains setup hint and visible identity'() {
+    void 'writeMisconfigured signals skipped review and visible identity'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
 
         writer.writeMisconfigured(file.absolutePath, 'missing key')
 
         assertThat(file.text)
-            .contains('Code Review Agent by boghus is not configured')
+            .contains('Code Review Agent by boghus skipped')
             .contains('missing key')
-            .contains(ReviewReportWriter.COMMENT_MARKER)
+            .contains('non-blocking')
     }
 
     @Test

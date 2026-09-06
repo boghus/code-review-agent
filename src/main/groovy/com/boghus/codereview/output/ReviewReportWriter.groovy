@@ -134,11 +134,11 @@ The automated review is non-blocking. Re-run the workflow when the AI provider i
     }
 
     void writeMisconfigured(String outputPath, String message) {
-        write(outputPath, """## ⚠️ Code Review Agent by boghus is not configured
+        write(outputPath, """## ⚠️ Code Review Agent by boghus skipped
 
 ${message}
 
-The review did not run because required configuration is missing. See the action documentation for setup steps.
+The automated review was skipped because the required configuration or trusted review rules could not be loaded or validated. This is non-blocking; fix the configuration or rules and re-run the workflow.
 """)
     }
 
