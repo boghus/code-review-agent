@@ -5,11 +5,13 @@ import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
 import com.boghus.codereview.provider.AiProviderException
 import com.boghus.codereview.provider.AiProviderFactory
+import com.boghus.codereview.provider.GeminiAdapter
 import com.boghus.codereview.provider.ReviewRequest
 import com.boghus.codereview.provider.RuntimeErrorSanitizer
 import com.boghus.codereview.review.DiffAnalyzer
 import com.boghus.codereview.review.DiffSizeGuard
 import com.boghus.codereview.review.ReviewPromptBuilder
+import com.boghus.codereview.review.ReviewTrace
 import groovy.transform.CompileStatic
 
 /**
@@ -76,6 +78,20 @@ class CodeReview {
 
         ReviewPromptBuilder promptBuilder = new ReviewPromptBuilder()
         ReviewRequest request = promptBuilder.buildRequest(rules, diff, inputs.language)
+
+        ReviewTrace trace = ReviewTrace.create(
+            inputs.repository,
+            inputs.pullRequest,
+            inputs.baseSha,
+            inputs.headSha,
+            analyzer,
+            diff,
+            rules,
+            request,
+            inputs.model,
+            provider.type() == com.boghus.codereview.provider.AiProviderType.GEMINI ? GeminiAdapter.MAX_OUTPUT_TOKENS : 0
+        )
+        trace.log()
 
         try {
             String text = provider.review(request)

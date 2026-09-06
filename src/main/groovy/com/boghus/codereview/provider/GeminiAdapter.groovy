@@ -23,6 +23,8 @@ import java.util.regex.Matcher
 @CompileStatic
 class GeminiAdapter implements AiProvider {
 
+    static final int MAX_OUTPUT_TOKENS = 8192
+
     private final Client client
     private final String model
 
@@ -69,7 +71,7 @@ class GeminiAdapter implements AiProvider {
         GenerateContentConfig config = GenerateContentConfig.builder()
             .systemInstruction(buildSystemInstruction(request))
             .temperature(0.1f)
-            .maxOutputTokens(8192)
+            .maxOutputTokens(MAX_OUTPUT_TOKENS)
             .build()
 
         try {
