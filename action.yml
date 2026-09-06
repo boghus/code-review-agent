@@ -65,6 +65,61 @@ runs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
 
+    - name: Fetch and verify PR base
+      shell: bash
+      env:
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        set -euo pipefail
+
+        echo "[CRA][diff] repository: $GITHUB_REPOSITORY"
+        echo "[CRA][diff] event: $GITHUB_EVENT_NAME"
+        echo "[CRA][diff] base ref: $BASE_REF"
+        echo "[CRA][diff] base sha: $BASE_SHA"
+        echo "[CRA][diff] head sha: $HEAD_SHA"
+        echo "[CRA][diff] checked-out HEAD: $(git rev-parse HEAD)"
+        echo "[CRA][diff] origin URL: $(git remote get-url origin)"
+
+        echo "[CRA][diff] verifying head commit..."
+        git cat-file -e "$HEAD_SHA^{commit}"
+        echo "[CRA][diff] head commit is available"
+
+        echo "[CRA][diff] fetching base branch: refs/heads/$BASE_REF"
+        git fetch --no-tags origin \
+          "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+
+        echo "[CRA][diff] verifying exact base SHA after branch fetch..."
+        if ! git cat-file -e "$BASE_SHA^{commit}"; then
+          echo "[CRA][diff] base SHA is not reachable from the fetched base branch"
+          echo "[CRA][diff] attempting direct fetch of exact base SHA..."
+          git fetch --no-tags origin "$BASE_SHA"
+        fi
+
+        echo "[CRA][diff] verifying exact base commit: $BASE_SHA"
+        git cat-file -e "$BASE_SHA^{commit}"
+        echo "[CRA][diff] base commit is available"
+
+        echo "[CRA][diff] resolved base: $(git rev-parse "$BASE_SHA^{commit}")"
+        echo "[CRA][diff] resolved head: $(git rev-parse "$HEAD_SHA^{commit}")"
+        echo "[CRA][diff] merge-base: $(git merge-base "$BASE_SHA" "$HEAD_SHA")"
+        echo "[CRA][diff] base parent count: $(git rev-list --count "$BASE_SHA^@")"
+        echo "[CRA][diff] commits between base and head: $(git rev-list --count "$BASE_SHA..$HEAD_SHA")"
+
+        echo "[CRA][diff] relevant refs:"
+        git show-ref | grep -E "refs/remotes/origin/$BASE_REF$|refs/heads/$BASE_REF$" || true
+
+        echo "[CRA][diff] exact SHA diagnostic:"
+        echo "[CRA][diff] base object type: $(git cat-file -t "$BASE_SHA")"
+        echo "[CRA][diff] base commit subject: $(git log -1 --format='%s' "$BASE_SHA")"
+        echo "[CRA][diff] base commit date: $(git log -1 --format='%cI' "$BASE_SHA")"
+        echo "[CRA][diff] head commit subject: $(git log -1 --format='%s' "$HEAD_SHA")"
+        echo "[CRA][diff] head commit date: $(git log -1 --format='%cI' "$HEAD_SHA")"
+        echo "[CRA][diff] diff stat preview:"
+        git diff --no-ext-diff --stat "$BASE_SHA" "$HEAD_SHA"
+        echo "[CRA][diff] exact base SHA diagnostic completed"
+
     - name: Resolve path inputs
       id: resolve-paths
       shell: bash
