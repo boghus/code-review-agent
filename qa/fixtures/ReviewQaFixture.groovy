@@ -5,7 +5,7 @@ import java.io.File
 class ReviewQaFixture {
 
     static String loadName(Map<String, String> input) {
-        String name = input.get('name')
+        String name = input?.get('name')
         name?.toUpperCase()
     }
 
