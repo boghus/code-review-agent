@@ -47,6 +47,18 @@ class RuntimeErrorSanitizerTest {
     }
 
     @Test
+    void 'redacts prompt values'() {
+        String result = RuntimeErrorSanitizer.sanitize(
+            new RuntimeException('provider failed prompt=Review this private repository content: customer data')
+        )
+
+        assertThat(result)
+            .contains('prompt [REDACTED]')
+            .doesNotContain('Review this private repository content')
+            .doesNotContain('customer data')
+    }
+
+    @Test
     void 'redacts sensitive values in nested causes'() {
         Throwable cause = new IllegalStateException('provider token=inner-secret')
         Throwable exception = new RuntimeException('review failed', cause)
