@@ -15,8 +15,8 @@ class SeverityQaFixture {
         requested.collect { value -> names.find { it == value } }
     }
 
-    // LOW: deliberate style issue; redundant parentheses.
     static String formatName(String name) {
-        return ((name))
+        String result = name.trim()
+        return result
     }
 }
