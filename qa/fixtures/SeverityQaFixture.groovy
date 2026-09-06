@@ -15,9 +15,8 @@ class SeverityQaFixture {
         requested.collect { value -> names.find { it == value } }
     }
 
-    // LOW: deliberate style issue; unnecessary temporary variable.
+    // LOW: deliberate style issue; redundant parentheses.
     static String formatName(String name) {
-        def result = name
-        result
+        return ((name))
     }
 }
