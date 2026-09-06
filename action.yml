@@ -65,6 +65,24 @@ runs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
 
+    - name: Fetch and verify PR base
+      if: github.event_name == 'pull_request'
+      shell: bash
+      env:
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        set -euo pipefail
+
+        git fetch --no-tags origin \
+          "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+
+        if ! git cat-file -e "$BASE_SHA^{commit}"; then
+          git fetch --no-tags origin "$BASE_SHA"
+        fi
+
+        git cat-file -e "$BASE_SHA^{commit}"
+
     - name: Resolve path inputs
       id: resolve-paths
       shell: bash
