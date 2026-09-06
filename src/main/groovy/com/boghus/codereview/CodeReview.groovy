@@ -26,8 +26,9 @@ import groovy.transform.CompileStatic
  * responsible for mapping trusted instructions and untrusted repository
  * content to their provider's available channels.</p>
  *
- * <p>The orchestrator never throws on AI-side failures. It writes a failure
- * report and exits 0 so the PR is never blocked by an unavailable provider.</p>
+ * <p>The orchestrator never throws on review-side failures. It writes a
+ * report and exits 0 so the PR is never blocked by an unavailable provider,
+ * invalid configuration, or unavailable trusted rules.</p>
  */
 @CompileStatic
 class CodeReview {
@@ -62,9 +63,19 @@ class CodeReview {
         try {
             File repositoryDirectory = new File(System.getenv('GITHUB_WORKSPACE') ?: '.').canonicalFile
             rules = TrustedRulesLoader.load(inputs.baseSha, inputs.rulesPath, repositoryDirectory)
-        } catch (IllegalArgumentException | IllegalStateException ex) {
-            writer.writeMisconfigured(inputs.outputPath, ex.message)
-            println "Code Review Agent: trusted rules could not be loaded: ${ex.message}"
+        } catch (IllegalArgumentException ex) {
+            writer.writeTrustedRulesFailure(
+                inputs.outputPath,
+                'The trusted review rules are invalid or do not point to a regular file in the pull request base revision.'
+            )
+            println "Code Review Agent: trusted rules validation failed: ${RuntimeErrorSanitizer.sanitize(ex)}"
+            return
+        } catch (IllegalStateException ex) {
+            writer.writeTrustedRulesFailure(
+                inputs.outputPath,
+                'The trusted review rules could not be loaded from the pull request base revision.'
+            )
+            println "Code Review Agent: trusted rules could not be loaded: ${RuntimeErrorSanitizer.sanitize(ex)}"
             return
         }
 
