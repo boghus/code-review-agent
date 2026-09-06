@@ -15,8 +15,7 @@ class ReviewResponseNormalizerTest {
 Todo correcto.
 '''
 
-        assertThat(ReviewResponseNormalizer.normalize(response))
-            .isEqualTo(response.trim())
+        assertThat(ReviewResponseNormalizer.normalize(response)).isEqualTo(response.trim())
     }
 
     @Test
@@ -40,9 +39,7 @@ Todo correcto.''')
 
     @Test
     void 'fails explicitly when the review header is missing'() {
-        assertThatThrownBy {
-            ReviewResponseNormalizer.normalize('Some random AI response')
-        }
+        assertThatThrownBy { ReviewResponseNormalizer.normalize('Some random AI response') }
             .isInstanceOf(IllegalArgumentException)
             .hasMessage('The AI provider response does not contain the expected review header.')
     }
