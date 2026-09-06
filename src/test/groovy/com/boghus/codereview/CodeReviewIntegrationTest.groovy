@@ -81,7 +81,7 @@ class CodeReviewIntegrationTest {
     }
 
     @Test
-    void 'writes misconfiguration when api key is blank'() {
+    void 'writes skipped review when configuration is invalid'() {
         File output = File.createTempFile('cra-review-', '.md')
         output.delete()
         output.deleteOnExit()
@@ -89,7 +89,8 @@ class CodeReviewIntegrationTest {
         new ReviewReportWriter().writeMisconfigured(output.absolutePath, 'api-key missing')
 
         assertThat(output.text)
-            .contains('is not configured')
+            .contains('Code Review Agent by boghus skipped')
             .contains('api-key missing')
+            .contains('non-blocking')
     }
 }

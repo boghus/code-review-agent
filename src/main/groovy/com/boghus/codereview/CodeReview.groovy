@@ -1,6 +1,7 @@
 package com.boghus.codereview
 
 import com.boghus.codereview.github.ActionInputs
+import com.boghus.codereview.github.TrustedRulesLoader
 import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
 import com.boghus.codereview.provider.AiProviderException
@@ -57,7 +58,16 @@ class CodeReview {
             return
         }
 
-        String rules = new File(inputs.rulesPath).exists() ? new File(inputs.rulesPath).getText('UTF-8') : ''
+        String rules
+        try {
+            File repositoryDirectory = new File(System.getenv('GITHUB_WORKSPACE') ?: '.').canonicalFile
+            rules = TrustedRulesLoader.load(inputs.baseSha, inputs.rulesPath, repositoryDirectory)
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            writer.writeMisconfigured(inputs.outputPath, ex.message)
+            println "Code Review Agent: trusted rules could not be loaded: ${ex.message}"
+            return
+        }
+
         String diff = diffFile.getText('UTF-8')
 
         DiffSizeGuard sizeGuard = new DiffSizeGuard(inputs.maxDiffBytes, inputs.maxDiffLines)
