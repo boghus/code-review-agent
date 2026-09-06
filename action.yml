@@ -110,6 +110,16 @@ runs:
         echo "[CRA][diff] relevant refs:"
         git show-ref | grep -E "refs/remotes/origin/$BASE_REF$|refs/heads/$BASE_REF$" || true
 
+        echo "[CRA][diff] exact SHA diagnostic:"
+        echo "[CRA][diff] base object type: $(git cat-file -t "$BASE_SHA")"
+        echo "[CRA][diff] base commit subject: $(git log -1 --format='%s' "$BASE_SHA")"
+        echo "[CRA][diff] base commit date: $(git log -1 --format='%cI' "$BASE_SHA")"
+        echo "[CRA][diff] head commit subject: $(git log -1 --format='%s' "$HEAD_SHA")"
+        echo "[CRA][diff] head commit date: $(git log -1 --format='%cI' "$HEAD_SHA")"
+        echo "[CRA][diff] diff stat preview:"
+        git diff --no-ext-diff --stat "$BASE_SHA" "$HEAD_SHA"
+        echo "[CRA][diff] exact base SHA diagnostic completed"
+
     - name: Resolve path inputs
       id: resolve-paths
       shell: bash
