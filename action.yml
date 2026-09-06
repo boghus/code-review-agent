@@ -1,5 +1,5 @@
 name: 'Code Review Agent by boghus'
-description: 'AI-powered Pull Request reviewer. Posts a single, idempotent review comment. Provider-agnostic (Gemini first).'
+description: 'AI-powered Pull Request reviewer. Posts a single, idempotent review comment. Provider-agnostic (Gemini and MiniMax).'
 author: 'boghus'
 
 branding:
@@ -11,11 +11,11 @@ inputs:
     description: 'API key for the AI provider. Map any repository secret to this input.'
     required: true
   model:
-    description: 'Model identifier passed to the AI provider (e.g. gemini-3.6-flash).'
+    description: 'Model identifier passed to the AI provider (e.g. gemini-3.6-flash or MiniMax-M3).'
     required: false
     default: 'gemini-3.6-flash'
   provider:
-    description: 'AI provider implementation. Currently only "gemini" is supported.'
+    description: 'AI provider implementation. Supported values: gemini, minimax.'
     required: false
     default: 'gemini'
   language:

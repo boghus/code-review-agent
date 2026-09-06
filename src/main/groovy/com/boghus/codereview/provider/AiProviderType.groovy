@@ -10,7 +10,8 @@ import groovy.transform.CompileStatic
  */
 @CompileStatic
 enum AiProviderType {
-    GEMINI('gemini')
+    GEMINI('gemini'),
+    MINIMAX('minimax')
 
     final String configName
 

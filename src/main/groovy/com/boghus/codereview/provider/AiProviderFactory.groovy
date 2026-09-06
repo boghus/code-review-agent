@@ -12,7 +12,8 @@ import java.util.function.BiFunction
 class AiProviderFactory {
 
     private static final Map<AiProviderType, BiFunction<String, String, AiProvider>> REGISTRY = [
-        (AiProviderType.GEMINI): { String apiKey, String model -> new GeminiAdapter(apiKey, model) }
+        (AiProviderType.GEMINI): { String apiKey, String model -> new GeminiAdapter(apiKey, model) },
+        (AiProviderType.MINIMAX): { String apiKey, String model -> new MiniMaxAdapter(apiKey, model) }
     ]
 
     static AiProvider create(String providerName, String apiKey, String model) {

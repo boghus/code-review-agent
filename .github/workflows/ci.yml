@@ -11,7 +11,7 @@ permissions:
   pull-requests: write
 
 env:
-  SELF_REVIEW_GEMINI_MODEL: gemini-3.6-flash
+  SELF_REVIEW_MINIMAX_MODEL: MiniMax-M3
 
 jobs:
   build:
@@ -43,8 +43,8 @@ jobs:
       - name: Show self-review configuration
         shell: bash
         run: |
-          echo "Code Review Agent self-review provider: gemini"
-          echo "Code Review Agent self-review model: ${SELF_REVIEW_GEMINI_MODEL}"
+          echo "Code Review Agent self-review provider: minimax"
+          echo "Code Review Agent self-review model: ${SELF_REVIEW_MINIMAX_MODEL}"
           echo "Code Review Agent self-review language: es"
 
       # Run the action from this PR instead of a published tag. This makes
@@ -52,8 +52,8 @@ jobs:
       - name: Run self-review
         uses: ./
         with:
-          api-key: ${{ secrets.GEMINI_API_KEY }}
-          model: ${{ env.SELF_REVIEW_GEMINI_MODEL }}
-          provider: gemini
+          api-key: ${{ secrets.Mininax_API_KEY }}
+          model: ${{ env.SELF_REVIEW_MINIMAX_MODEL }}
+          provider: minimax
           language: es
           github-token: ${{ github.token }}
