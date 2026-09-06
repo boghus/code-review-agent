@@ -65,6 +65,16 @@ runs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
 
+    - name: Fetch PR base
+      shell: bash
+      env:
+        BASE_REF: ${{ github.event.pull_request.base.ref }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        git fetch --no-tags origin \
+          "refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+        git cat-file -e "$BASE_SHA^{commit}"
+
     - name: Resolve path inputs
       id: resolve-paths
       shell: bash
