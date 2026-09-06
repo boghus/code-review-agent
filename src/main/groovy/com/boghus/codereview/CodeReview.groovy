@@ -6,6 +6,7 @@ import com.boghus.codereview.provider.AiProvider
 import com.boghus.codereview.provider.AiProviderException
 import com.boghus.codereview.provider.AiProviderFactory
 import com.boghus.codereview.provider.ReviewRequest
+import com.boghus.codereview.provider.RuntimeErrorSanitizer
 import com.boghus.codereview.review.DiffAnalyzer
 import com.boghus.codereview.review.DiffSizeGuard
 import com.boghus.codereview.review.ReviewPromptBuilder
@@ -69,7 +70,7 @@ class CodeReview {
             provider = AiProviderFactory.create(inputs.provider, inputs.apiKey, inputs.model)
         } catch (IllegalArgumentException ex) {
             writer.writeMisconfigured(inputs.outputPath, ex.message)
-            println "Code Review Agent: ${ex.message}"
+            println "Code Review Agent: ${RuntimeErrorSanitizer.sanitize(ex)}"
             return
         }
 
@@ -82,12 +83,11 @@ class CodeReview {
             println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.type().configName}/${inputs.model}."
         } catch (AiProviderException ex) {
             writer.writeFailure(inputs.outputPath, ex.userMessage)
-            println "Code Review Agent: ${provider.type().configName} failure [${ex.category}]: ${ex.cause?.message ?: ex.message}"
+            println "Code Review Agent: ${provider.type().configName} failure [${ex.category}]: ${RuntimeErrorSanitizer.sanitize(ex.cause ?: ex)}"
         } catch (Exception ex) {
             String userMessage = "The AI provider (**${provider.type().configName}**, model `${inputs.model}`) failed unexpectedly. Check the workflow log for the technical error and retry."
             writer.writeFailure(inputs.outputPath, userMessage)
-            String safe = ex.message?.replace('`', "'") ?: 'unknown error'
-            println "Code Review Agent: unexpected failure: ${safe}"
+            println "Code Review Agent: unexpected failure: ${RuntimeErrorSanitizer.sanitize(ex)}"
         }
     }
 }
