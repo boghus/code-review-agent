@@ -9,6 +9,7 @@ import com.boghus.codereview.provider.GeminiAdapter
 import com.boghus.codereview.provider.ReviewRequest
 import com.boghus.codereview.provider.RuntimeErrorSanitizer
 import com.boghus.codereview.review.DiffAnalyzer
+import com.boghus.codereview.review.DiffBuilder
 import com.boghus.codereview.review.DiffSizeGuard
 import com.boghus.codereview.review.ReviewPromptBuilder
 import com.boghus.codereview.review.ReviewTrace
@@ -42,6 +43,14 @@ class CodeReview {
         }
 
         File diffFile = new File(inputs.diffPath)
+        try {
+            DiffBuilder.build(diffFile, inputs.baseSha, inputs.headSha)
+        } catch (Exception ex) {
+            writer.writeFailure(inputs.outputPath, "Failed to generate Git diff: ${ex.message}")
+            println "Code Review Agent: ${RuntimeErrorSanitizer.sanitize(ex)}"
+            return
+        }
+
         if (!diffFile.exists() || !diffFile.text.trim()) {
             writer.writeEmpty(inputs.outputPath)
             println 'Code Review Agent: empty diff, wrote empty review.'
