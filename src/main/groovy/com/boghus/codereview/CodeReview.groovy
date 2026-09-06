@@ -12,6 +12,7 @@ import com.boghus.codereview.review.DiffAnalyzer
 import com.boghus.codereview.review.DiffBuilder
 import com.boghus.codereview.review.DiffSizeGuard
 import com.boghus.codereview.review.ReviewPromptBuilder
+import com.boghus.codereview.review.ReviewResponseNormalizer
 import com.boghus.codereview.review.ReviewTrace
 import groovy.transform.CompileStatic
 
@@ -104,7 +105,8 @@ class CodeReview {
 
         try {
             String text = provider.review(request)
-            writer.writeAiGenerated(inputs.outputPath, text)
+            String normalizedText = ReviewResponseNormalizer.normalize(text)
+            writer.writeAiGenerated(inputs.outputPath, normalizedText)
             println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.type().configName}/${inputs.model}."
         } catch (AiProviderException ex) {
             writer.writeFailure(inputs.outputPath, ex.userMessage)
