@@ -16,8 +16,8 @@ import java.util.regex.Matcher
 class RuntimeErrorSanitizer {
 
     private static final List<String> SENSITIVE_PATTERNS = [
-        '(?i)(api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|token|password|secret|credential)\\s*([=:]\\s*)("[^"]*"|\\'[^\\']*\\'|[^\\s,;]+)',
-        '(?i)(authorization\\s*:\\s*bearer)\\s+[^\\s,;]+'
+        "(?i)(api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|token|password|secret|credential)\\s*([=:]\\s*)[^\\s,;]+",
+        "(?i)(authorization\\s*:\\s*bearer)\\s+[^\\s,;]+"
     ]
 
     static String sanitize(Throwable exception) {
@@ -52,13 +52,10 @@ class RuntimeErrorSanitizer {
             Matcher matcher = sanitized =~ pattern
             StringBuffer result = new StringBuffer()
             while (matcher.find()) {
-                if (matcher.groupCount() == 3) {
-                    String replacement = "${matcher.group(1)}${matcher.group(2)}[REDACTED]"
-                    matcher.appendReplacement(result, Matcher.quoteReplacement(replacement))
-                } else {
-                    String replacement = "${matcher.group(1)} [REDACTED]"
-                    matcher.appendReplacement(result, Matcher.quoteReplacement(replacement))
-                }
+                String replacement = matcher.groupCount() >= 2
+                    ? "${matcher.group(1)}${matcher.group(2)}[REDACTED]"
+                    : "${matcher.group(1)} [REDACTED]"
+                matcher.appendReplacement(result, Matcher.quoteReplacement(replacement))
             }
             matcher.appendTail(result)
             sanitized = result.toString()
