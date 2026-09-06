@@ -33,7 +33,12 @@ if grep -q 'historical change' "$diff_path"; then
   exit 1
 fi
 
+if grep -q 'historical.txt' "$diff_path"; then
+  echo 'FAIL: file present only in an intermediate commit leaked into the final PR diff' >&2
+  exit 1
+fi
+
+grep -q 'kept.txt' "$diff_path"
 grep -q '+final change' "$diff_path"
-grep -q 'deleted file mode' "$diff_path"
 
 echo 'PASS: final PR diff contains only changes between base and head'
