@@ -18,7 +18,7 @@ class RuntimeErrorSanitizer {
     private static final List<String> SENSITIVE_PATTERNS = [
         "(?i)(api[-_ ]?key|access[-_ ]?token|refresh[-_ ]?token|token|password|secret|credential)\\s*([=:]\\s*)[^\\s,;]+",
         "(?i)(authorization\\s*:\\s*bearer)\\s+[^\\s,;]+",
-        "(?i)(prompt|system[-_ ]?instruction|developer[-_ ]?instruction)\\s*[:=]\\s*.*$"
+        '(?i)(prompt|system[-_ ]?instruction|developer[-_ ]?instruction)\\s*[:=]\\s*.*$'
     ]
 
     static String sanitize(Throwable exception) {
