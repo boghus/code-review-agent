@@ -37,24 +37,27 @@ class TrustedRulesLoader {
         }
 
         File rulesFile = File.createTempFile('cra-rules-', '.md', tempDirectory)
-        Process process = new ProcessBuilder('git', 'show', "${baseSha}:${rulesPath}")
-            .directory(repositoryDirectory)
-            .redirectErrorStream(false)
-            .start()
-        process.inputStream.withStream { InputStream input ->
-            rulesFile.withOutputStream { OutputStream output ->
-                input.transferTo(output)
+        try {
+            Process process = new ProcessBuilder('git', 'show', "${baseSha}:${rulesPath}")
+                .directory(repositoryDirectory)
+                .redirectErrorStream(false)
+                .start()
+            process.inputStream.withStream { InputStream input ->
+                rulesFile.withOutputStream { OutputStream output ->
+                    input.transferTo(output)
+                }
             }
-        }
-        String error = process.errorStream.getText('UTF-8')
-        int exitCode = process.waitFor()
-        if (exitCode != 0) {
-            rulesFile.delete()
-            throw new IllegalStateException("Unable to read trusted rules from base ref '${baseSha}': ${error.trim()}")
-        }
+            String error = process.errorStream.getText('UTF-8')
+            int exitCode = process.waitFor()
+            if (exitCode != 0) {
+                throw new IllegalStateException("Unable to read trusted rules from base ref '${baseSha}': ${error.trim()}")
+            }
 
-        rulesFile.setReadable(true, true)
-        return rulesFile.getText('UTF-8')
+            rulesFile.setReadable(true, true)
+            return rulesFile.getText('UTF-8')
+        } finally {
+            rulesFile.delete()
+        }
     }
 
     static void validate(String baseSha, String rulesPath) {
