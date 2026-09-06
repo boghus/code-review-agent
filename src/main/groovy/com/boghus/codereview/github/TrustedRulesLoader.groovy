@@ -27,18 +27,10 @@ class TrustedRulesLoader {
         }
 
         File rulesFile = File.createTempFile('cra-rules-', '.md', tempDirectory)
-        load(baseSha, rulesPath, repositoryDirectory, rulesFile)
+        loadFromFile(baseSha, rulesPath, repositoryDirectory, rulesFile)
     }
 
-    static String load(String baseSha, String rulesPath, File repositoryDirectory, File rulesFile) {
-        validate(baseSha, rulesPath)
-
-        String treeOutput = git(['ls-tree', '-z', baseSha, '--', rulesPath], repositoryDirectory)
-        String entryType = findEntryType(treeOutput, rulesPath)
-        if (entryType != 'blob') {
-            throw new IllegalArgumentException("rules-path must point to a regular file in base ref '${baseSha}': ${rulesPath}")
-        }
-
+    static String loadFromFile(String baseSha, String rulesPath, File repositoryDirectory, File rulesFile) {
         try {
             Process process = new ProcessBuilder('git', 'show', "${baseSha}:${rulesPath}")
                 .directory(repositoryDirectory)
