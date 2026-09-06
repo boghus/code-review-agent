@@ -24,8 +24,8 @@ jobs:
           llm_provider: openrouter
           llm_api_url: https://openrouter.ai/api/v1
           llm_api_key: ${{ secrets.OPENROUTER_API_KEY }}
-          llm_model: openrouter/free
+          llm_model: poolside/laguna-s-2.1:free
           review_mode: both
           tone_mode: balanced
           review_lens: default
-          debiased_mode: "false"
+          debiased_mode: "true"
