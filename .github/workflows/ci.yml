@@ -25,6 +25,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: gradle build --no-daemon
       - run: gradle test --no-daemon
+      - name: Verify final PR diff
+        shell: bash
+        run: bash scripts/test-final-pr-diff.sh
       - name: Verify GitHub token isolation
         shell: bash
         run: bash scripts/security-check-github-token.sh
