@@ -177,6 +177,10 @@ runs:
         CRA_RULES_PATH: ${{ steps.load-rules.outputs.rules-path }}
         CRA_DIFF_PATH: ${{ steps.resolve-paths.outputs.diff-path }}
         CRA_OUTPUT_PATH: ${{ steps.resolve-paths.outputs.output-path }}
+        CRA_REPOSITORY: ${{ github.repository }}
+        CRA_PULL_REQUEST: ${{ github.event.pull_request.number }}
+        CRA_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        CRA_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         CRA_ACTION_REF: ${{ github.action_ref || github.event.pull_request.head.ref || github.ref_name }}
         CRA_ACTION_SHA: ${{ github.action_sha || github.event.pull_request.head.sha || github.sha }}
         CRA_MAX_DIFF_BYTES: ${{ inputs.max-diff-bytes }}
