@@ -24,12 +24,12 @@ class DiffBuilder {
      * @param baseSha      SHA at the PR base (inclusive)
      * @param headSha      SHA at the PR head (inclusive)
      * @param contextLines number of context lines (default 80)
-     * @param workingDir   git working directory (default: current process cwd)
+     * @param workingDir   git working directory (default: GITHUB_WORKSPACE)
      * @return the number of lines written, or 0 if the diff was empty
      */
     static int build(File output, String baseSha, String headSha,
                      int contextLines = DEFAULT_CONTEXT_LINES,
-                     File workingDir = null) {
+                     File workingDir = defaultWorkingDirectory()) {
         if (!baseSha?.trim()) {
             throw new IllegalArgumentException('baseSha is required')
         }
@@ -51,9 +51,7 @@ class DiffBuilder {
             baseSha,
             headSha
         )
-        if (workingDir != null) {
-            pb.directory(workingDir)
-        }
+        pb.directory(workingDir)
         Process process = pb.start()
 
         File parent = output.parentFile
@@ -88,5 +86,9 @@ class DiffBuilder {
             }
         }
         return lines
+    }
+
+    private static File defaultWorkingDirectory() {
+        new File(System.getenv('GITHUB_WORKSPACE') ?: '.').canonicalFile
     }
 }
