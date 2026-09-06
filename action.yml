@@ -155,17 +155,20 @@ runs:
         echo "rules-path=${RULES_FILE}" >> "$GITHUB_OUTPUT"
         echo "Loaded trusted rules from ${BASE_SHA}:${RULES_RELATIVE} (${ENTRY_TYPE}) → ${RULES_FILE}"
 
-    - name: Build final PR diff
+    - name: Build PR diff
       shell: bash
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         DIFF_PATH: ${{ steps.resolve-paths.outputs.diff-path }}
-      run: bash "$GITHUB_ACTION_PATH/scripts/build-pr-diff.sh"
+      run: |
+        git diff --no-ext-diff --unified=80 "$BASE_SHA" "$HEAD_SHA" > "$DIFF_PATH"
 
     - name: Run Code Review Agent
       shell: bash
       env:
+        # Explicitly remove the GitHub token from the AI process boundary.
+        # GitHub API operations belong exclusively to the comment steps below.
         GITHUB_TOKEN: ''
         CRA_API_KEY: ${{ inputs.api-key }}
         CRA_PROVIDER: ${{ inputs.provider }}
@@ -191,6 +194,9 @@ runs:
         token: ${{ inputs.github-token }}
         issue-number: ${{ github.event.pull_request.number }}
         comment-author: github-actions[bot]
+        # Accept both the new marker and the legacy v1 marker so existing
+        # comments from earlier releases are picked up and replaced in
+        # place instead of producing a duplicate.
         body-regex: '<!-- code-review-agent-by-boghus -->|<!-- code-review-agent -->'
 
     - name: Create or update review comment
