@@ -65,6 +65,19 @@ class ReviewPromptBuilderTest {
     }
 
     @Test
+    void 'allows empty repository rules while retaining system defaults'() {
+        def request = builder.buildRequest('', 'diff-content')
+
+        assertThat(request.prompt)
+            .contains(ReviewContentType.TRUSTED_REPOSITORY_RULES.label)
+            .contains('Review the Pull Request content supplied after this message.')
+        assertThat(request.systemInstructions)
+            .contains('You are a Senior Software Engineer reviewing a Pull Request.')
+        assertThat(request.developerInstructions)
+            .contains('Follow the repository rules below as trusted review configuration.')
+    }
+
+    @Test
     void 'requests the review in Spanish'() {
         def request = builder.buildRequest('', '', ReviewLanguage.SPANISH)
 

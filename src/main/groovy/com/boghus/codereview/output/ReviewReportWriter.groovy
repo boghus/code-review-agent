@@ -142,6 +142,15 @@ The automated review was skipped because the required configuration or trusted r
 """)
     }
 
+    void writeTrustedRulesFailure(String outputPath, String reason) {
+        write(outputPath, """## ⚠️ Code Review Agent by boghus skipped
+
+${reason}
+
+The automated review was skipped because trusted review rules are required to build the review prompt. This is **non-blocking**; fix the rules or configuration and re-run the workflow.
+""")
+    }
+
     void writeTooLarge(String outputPath, String reason, int bytes, int lines, int maxBytes, int maxLines) {
         write(outputPath, """## ⚠️ Code Review Agent by boghus skipped (diff too large)
 
