@@ -32,6 +32,11 @@ class ActionInputs {
     int maxDiffBytes
     int maxDiffLines
 
+    String repository
+    int pullRequest
+    String baseSha
+    String headSha
+
     static ActionInputs fromEnvironment(Map<String, String> env) {
         ActionInputs inputs = new ActionInputs()
         inputs.apiKey = env.CRA_API_KEY
@@ -43,6 +48,10 @@ class ActionInputs {
         inputs.language = InputParser.parseLanguage(env.CRA_LANGUAGE)
         inputs.maxDiffBytes = InputParser.parsePositiveInt(env.CRA_MAX_DIFF_BYTES, DEFAULT_MAX_DIFF_BYTES)
         inputs.maxDiffLines = InputParser.parsePositiveInt(env.CRA_MAX_DIFF_LINES, DEFAULT_MAX_DIFF_LINES)
+        inputs.repository = env.CRA_REPOSITORY ?: 'unknown'
+        inputs.pullRequest = InputParser.parsePositiveInt(env.CRA_PULL_REQUEST, 0)
+        inputs.baseSha = env.CRA_BASE_SHA ?: 'unknown'
+        inputs.headSha = env.CRA_HEAD_SHA ?: 'unknown'
         return inputs
     }
 
