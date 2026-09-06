@@ -157,7 +157,7 @@ ${request.untrustedRepositoryContent}"""
         while (current != null && depth < 5) {
             String message = current.message?.replace('`', "'")?.trim()
             if (message) {
-                messages << "${current.class.simpleName}: ${message}"
+                messages << "${current.class.simpleName}: ${message}".toString()
             } else {
                 messages << current.class.simpleName
             }
