@@ -155,15 +155,6 @@ runs:
         echo "rules-path=${RULES_FILE}" >> "$GITHUB_OUTPUT"
         echo "Loaded trusted rules from ${BASE_SHA}:${RULES_RELATIVE} (${ENTRY_TYPE}) → ${RULES_FILE}"
 
-    - name: Build PR diff
-      shell: bash
-      env:
-        BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        DIFF_PATH: ${{ steps.resolve-paths.outputs.diff-path }}
-      run: |
-        git diff --no-ext-diff --unified=80 "$BASE_SHA" "$HEAD_SHA" > "$DIFF_PATH"
-
     - name: Run Code Review Agent
       shell: bash
       env:
