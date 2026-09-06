@@ -14,7 +14,6 @@ class ReviewResponseNormalizerTest {
 ### Resumen
 Todo correcto.
 '''
-
         assertThat(ReviewResponseNormalizer.normalize(response)).isEqualTo(response.trim())
     }
 
@@ -29,7 +28,6 @@ Let me review the changes.
 ### Resumen
 Todo correcto.
 '''
-
         assertThat(ReviewResponseNormalizer.normalize(response))
             .isEqualTo('''## 🤖 Code Review Agent by boghus
 
