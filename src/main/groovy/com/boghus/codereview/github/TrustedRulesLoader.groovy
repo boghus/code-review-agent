@@ -20,23 +20,17 @@ class TrustedRulesLoader {
         validate(baseSha, rulesPath)
 
         String treeOutput = git(['ls-tree', '-z', baseSha, '--', rulesPath], repositoryDirectory)
-        String entryType = treeOutput.split('\u0000', -1)
-            .findResult { String entry ->
-                int tab = entry.indexOf('\t')
-                if (tab < 0) {
-                    return null
-                }
-                String metadata = entry.substring(0, tab)
-                String path = entry.substring(tab + 1)
-                List<String> fields = metadata.split(' ') as List<String>
-                fields.size() == 3 && path == rulesPath ? fields[1] : null
-            }
+        String entryType = findEntryType(treeOutput, rulesPath)
 
         if (entryType != 'blob') {
             throw new IllegalArgumentException("rules-path must point to a regular file in base ref '${baseSha}': ${rulesPath}")
         }
 
         File rulesFile = File.createTempFile('cra-rules-', '.md', tempDirectory)
+        load(baseSha, rulesPath, repositoryDirectory, rulesFile)
+    }
+
+    private static String load(String baseSha, String rulesPath, File repositoryDirectory, File rulesFile) {
         try {
             Process process = new ProcessBuilder('git', 'show', "${baseSha}:${rulesPath}")
                 .directory(repositoryDirectory)
@@ -58,6 +52,20 @@ class TrustedRulesLoader {
         } finally {
             rulesFile.delete()
         }
+    }
+
+    private static String findEntryType(String treeOutput, String rulesPath) {
+        treeOutput.split('\u0000', -1)
+            .findResult { String entry ->
+                int tab = entry.indexOf('\t')
+                if (tab < 0) {
+                    return null
+                }
+                String metadata = entry.substring(0, tab)
+                String path = entry.substring(tab + 1)
+                List<String> fields = metadata.split(' ') as List<String>
+                fields.size() == 3 && path == rulesPath ? fields[1] : null
+            }
     }
 
     static void validate(String baseSha, String rulesPath) {
