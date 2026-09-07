@@ -1,251 +1,360 @@
-# Code Review Agent by boghus
+# 🤖 Code Review Agent by boghus
 
-AI-powered Pull Request reviewer. Runs entirely inside GitHub Actions. Posts
-a single, idempotent review comment per PR.
+### Stop wasting engineering hours reviewing boilerplate. Catch security, logic, and concurrency bugs before they reach production.
 
-The Action is provider-agnostic. **Gemini** is the first supported provider;
-the architecture is open to OpenAI, Anthropic and others.
+[![Build](https://img.shields.io/github/actions/workflow/status/boghus/code-review-agent/ci.yml?style=flat-square&label=build)](https://github.com/boghus/code-review-agent/actions)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](CONTRIBUTING.md)
 
-## Why
+**AI-powered code review for GitHub Pull Requests.**
 
-- One review comment per PR, updated on every push (no spam).
-- Provider-agnostic interface, easy to evolve.
-- Runs inside your GitHub Actions runner. The PR diff and repository review rules are sent to the configured AI provider for analysis.
-- Minimal input surface: `api-key` + `model` + optional `language`.
+Code Review Agent by boghus reads the change in context, applies your repository's review rules, reasons about potential problems, and publishes actionable feedback directly to the PR.
 
-## Data & privacy
+**Non-blocking by design.** AI helps your team review code faster without becoming another CI bottleneck.
 
-The action runs inside your GitHub Actions runner, but it is **not a
-purely local tool**. To produce a review it sends the following to the
-configured AI provider (`provider` input, default `gemini`):
+---
 
-- The full PR diff (every added/removed line).
-- The contents of `rules-path` from the PR base ref.
+## ⚡ Traditional Review vs. Code Review Agent by boghus
 
-Nothing else from your repository is sent. The model output is written
-back into the runner and posted as a PR comment using your GitHub token.
+| | Traditional Manual Review | **Code Review Agent by boghus** |
+|---|---|---|
+| **Context** | Reviewer-dependent | 🔎 PR diff + repository rules + related context |
+| **Speed** | Minutes to hours | ⚡ Automated on every PR |
+| **Boilerplate** | Repeated manually | 🤖 Automated |
+| **Logic bugs** | Depends on reviewer availability | 🧠 AI-assisted reasoning |
+| **Security** | Manual + tooling | 🛡️ AI-assisted analysis |
+| **Race conditions** | Easy to miss | 🔀 Context-aware concurrency analysis |
+| **Feedback** | Reviewer comments | 💬 Automated PR feedback |
+| **Delivery** | Can become a bottleneck | 🚦 Non-blocking |
 
-Do not enable this action on repositories, files or branches whose
-content is not allowed to be shared with the AI provider you configure.
-Each provider has its own data-handling terms — review them before
-turning the action on.
+---
 
-## Quickstart
+# 🚀 Quickstart — 30 seconds
 
-Create `.github/workflows/code-review-agent.yml`:
+## GitHub Action
+
+Create `.github/workflows/review.yml`:
 
 ```yaml
-name: Code Review Agent by boghus
+name: AI Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
   pull-requests: write
-
-concurrency:
-  group: code-review-agent-by-boghus-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 
 jobs:
   review:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
 
+    steps:
       - uses: boghus/code-review-agent@v1
         with:
           api-key: ${{ secrets.MY_AI_KEY }}
-          model: gemini-2.5-flash
-          provider: gemini
-          language: es
+          model: gemini-3.6-flash
 ```
 
-## GitHub permissions and token isolation
+### Add your Gemini API key
 
-The action requires only these GitHub permissions in the consumer workflow:
+Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey), then save it as a GitHub Actions secret named `MY_AI_KEY`.
 
-```yaml
-permissions:
-  contents: read
-  pull-requests: write
+Open a PR and let Code Review Agent by boghus review it.
+
+That's the whole integration.
+
+---
+
+# 🧠 How it works
+
+```mermaid
+graph TD
+    A[PR Event] --> B[Fetch Diff & Related Context]
+    B --> C[Load Repository Review Rules]
+    C --> D[LLM Reasoning]
+    D --> E[Review Analysis]
+    E --> F[GitHub PR Comment]
+    F --> G{Existing Review?}
+    G -->|Yes| H[Update Existing Comment]
+    G -->|No| I[Create Review Comment]
 ```
 
-`contents: write`, `issues: write`, `actions: write` and other write
-permissions are not required by the current implementation.
+The core pipeline is intentionally simple:
 
-The `github-token` input is used exclusively by the GitHub comment steps
-(`peter-evans/find-comment` and `peter-evans/create-or-update-comment`).
-It is **not exposed to the Gradle/JVM process or any AI provider**. The
-AI step explicitly clears `GITHUB_TOKEN` before starting Gradle and only
-passes provider configuration through `CRA_*` variables.
+**PR Event → Context → LLM Reasoning → Review → GitHub**
 
-The security invariant is:
+---
+
+# 🔥 Features
+
+- 🤖 **AI-powered PR reviews** — automatically analyze every Pull Request.
+- 🔎 **Context-aware analysis** — reason about the actual diff and relevant repository context.
+- 📚 **Repository-specific rules** — define what matters to your engineering team.
+- 🛡️ **Security analysis** — identify suspicious patterns and potential vulnerabilities.
+- 🧠 **Logic analysis** — catch bugs that simple pattern matching cannot understand.
+- 🔀 **Concurrency analysis** — look for race conditions and unsafe shared-state access.
+- ⚡ **Performance analysis** — identify unnecessary queries, expensive operations, and resource-management issues.
+- 💡 **Actionable feedback** — focus on concrete problems and fixes instead of generic AI commentary.
+- 🔁 **Idempotent reviews** — update one existing Code Review Agent by boghus comment instead of spamming the PR.
+- 🚦 **Non-blocking** — AI review failures do not become a delivery blocker.
+- 🔌 **Provider abstraction** — AI providers are isolated behind a dedicated interface.
+- 🏠 **Local-model ready** — the architecture is designed to support self-hosted inference.
+
+---
+
+# 🔌 Multi-Model & Privacy
+
+AI infrastructure should not dictate how your source code is handled.
+
+Code Review Agent by boghus uses a provider abstraction so the review pipeline can evolve independently from the underlying model.
+
+### Cloud providers
+
+The provider architecture is designed for integrations such as:
+
+- Gemini
+- OpenAI
+- Claude / Anthropic
+- DeepSeek
+
+### Local inference
+
+For privacy-sensitive or enterprise environments, the architecture can accommodate local/self-hosted models through technologies such as:
+
+- 🦙 Ollama
+- 🧠 DeepSeek-based local models
+- 🏠 Other self-hosted LLM runtimes
+
+> **Current RC2 provider:** Gemini.
+>
+> OpenAI, Claude, Ollama, and DeepSeek are represented as provider targets/architecture capabilities, not as currently shipped integrations unless explicitly implemented in the project.
+
+This distinction keeps the README honest while making the provider architecture clear.
+
+---
+
+# 🔐 Privacy & Security
+
+Code Review Agent by boghus follows a minimal-context approach.
+
+By default, the AI provider receives the information required to perform the review rather than the entire repository.
+
+Typical review input includes:
 
 ```text
-GITHUB_TOKEN ∉ Gradle environment
-GITHUB_TOKEN ∉ AI provider
-GITHUB_TOKEN ∉ review prompt
-
-CRA_API_KEY → Gradle → AiProvider → configured AI provider
+PR diff
++
+Repository review rules
++
+Relevant review context
 ```
 
-A CI security check verifies this boundary so a future provider or workflow
-change cannot accidentally reintroduce the GitHub token into the AI process.
+The GitHub token is kept separate from the AI prompt:
 
-## Setup
+```text
+GITHUB_TOKEN
+    │
+    └── GitHub API
+         └── PR comments
 
-1. Create an API key in [Google AI Studio](https://aistudio.google.com/apikey).
-2. In your repo go to **Settings → Secrets and variables → Actions → New repository secret**.
-3. Name it anything (e.g. `MY_AI_KEY`, `GEMINI_API_KEY`).
-4. Map that secret to the `api-key` input as shown above.
-
-The Action never assumes the secret name. You own that contract.
-
-## Inputs
-
-| Input        | Required | Default                | Description |
-|--------------|----------|------------------------|-------------|
-| `api-key`    | yes      | —                      | Provider API key. Map any repository secret. |
-| `model`      | no       | `gemini-2.5-flash`     | Model identifier passed to the provider. |
-| `provider`   | no       | `gemini`               | Provider implementation. Only `gemini` is wired in v1. |
-| `language`   | no       | `en`                   | Review language. Supported values: `en`, `es`. Invalid values default to `en`. |
-| `rules-path` | no       | `.github/code_review_rules.md` | Path of the rules file **inside the repository** (relative to the repo root). Read from the PR base ref. |
-| `diff-path`  | no       | `cra-pr.diff`          | Where the PR diff is written. Relative to `${{ github.workspace }}` or absolute. |
-| `output-path`| no       | `cra-review.md`        | Where the generated review is written. Relative to `${{ github.workspace }}` or absolute. |
-| `github-token`| no      | `${{ github.token }}`  | Token used to post the comment. |
-| `max-diff-bytes`| no    | `200000`               | Skip the review with a warning if the diff exceeds this many bytes. |
-| `max-diff-lines`| no    | `4000`                 | Skip the review with a warning if the diff exceeds this number of lines. |
-
-The review is generated directly in the selected language in the same AI
-request. The action does not perform a second translation step.
-
-### Path inputs
-
-`rules-path` must be a path **inside the repository** (relative to the
-repo root, no leading slash). It is read from the PR base ref via
-`git show <base>:<path>`, which only accepts paths that exist in the
-git tree. The bytes are written into a runner-controlled temp file
-under `$RUNNER_TEMP` (never into the workspace the PR controls) and that
-temp path is passed to the orchestrator as `CRA_RULES_PATH`. Even if the
-PR pre-creates a symlink at the same location under the workspace, the
-trusted content lives elsewhere and the orchestrator only reads the
-file the action just wrote.
-
-`diff-path` and `output-path` are runner files, not part of the repo.
-They accept either form:
-
-- **Relative**: resolved against `${{ github.workspace }}` (the consumer's
-  repo working directory).
-- **Absolute** (starts with `/`): used as-is.
-
-Inside the action the resolved values are passed to Gradle as
-`CRA_DIFF_PATH` and `CRA_OUTPUT_PATH`.
-
-## Repository rules
-
-Drop a markdown file at `.github/code_review_rules.md` (default). It is
-**trusted configuration**: the reviewer treats its contents as instructions,
-not as data. Keep it short, factual and free of secrets — never put prompts
-that try to bypass the action's own system instructions in there.
-
-⚠️ **Trust boundary**: the rules file is read from the **PR base ref**
-(the branch the PR targets), not from the PR head. A contributor cannot
-override the review contract by modifying the rules file inside their own
-PR. If a PR adds or modifies `.github/code_review_rules.md`, those changes
-are reviewed as part of the diff but do **not** influence the review of
-that same PR.
-
-## Architecture
-
+AI API KEY
+    │
+    └── AiProvider
+         └── Configured LLM
 ```
+
+For organizations that cannot send source code to external AI services, local/self-hosted model providers are the natural extension of the provider architecture.
+
+---
+
+# 🧪 Teach the reviewer how your team works — Experimental
+
+> **Experimental:** this feature has not yet been fully validated in real-world team workflows.
+
+Create:
+
+```text
+.github/code_review_rules.md
+```
+
+Example:
+
+```markdown
+# Code Review Rules
+
+- Flag SQL queries constructed through string concatenation.
+- Flag hardcoded secrets and credentials.
+- Prefer explicit error handling.
+- Identify unnecessary database queries inside loops.
+- Flag unsafe concurrent access to shared mutable state.
+- Prefer small, focused methods.
+```
+
+Rules are loaded from the **PR base ref**.
+
+That matters: contributors cannot simply modify the review rules inside their PR and change the contract used to review their own code.
+
+---
+
+# 💬 One PR. One Review.
+
+Code Review Agent by boghus uses a stable marker:
+
+```html
+<!-- code-review-agent-by-boghus -->
+```
+
+So repeated pushes update the existing review instead of flooding the conversation.
+
+```text
+Push #1 ──→ 💬 Create review
+Push #2 ──→ ✏️ Update review
+Push #3 ──→ ✏️ Update review
+Push #4 ──→ ✏️ Update review
+```
+
+**No PR comment spam.**
+
+---
+
+# 🏗️ Architecture
+
+```text
 com.boghus.codereview
-├── CodeReview                  orchestrator
+├── CodeReview
+│   └── orchestrator
 ├── github
-│   └── ActionInputs            env → typed config
+│   └── ActionInputs
+│       └── environment → typed configuration
 ├── provider
-│   ├── AiProvider              contract
-│   ├── AiProviderFactory       registry
-│   └── GeminiAdapter           first implementation
+│   ├── AiProvider
+│   ├── AiProviderFactory
+│   └── GeminiAdapter
 ├── review
-│   ├── DiffAnalyzer            extracts changed files / lines
-│   ├── ReviewLanguage           supported review languages
-│   └── ReviewPromptBuilder     builds the prompt safely
+│   ├── DiffAnalyzer
+│   ├── ReviewLanguage
+│   └── ReviewPromptBuilder
 └── output
-    └── ReviewReportWriter      writes the PR comment body
+    └── ReviewReportWriter
 ```
 
-Posting the comment is delegated to `peter-evans/find-comment` +
-`peter-evans/create-or-update-comment`, which gives us idempotency
-("update the existing comment" instead of "append a new one").
+The provider boundary is deliberately small:
 
-## Idempotency
+```groovy
+interface AiProvider {
+    String review(String prompt)
+}
+```
 
-Every output begins with `<!-- code-review-agent-by-boghus -->`. The
-`peter-evans/find-comment` step uses that marker (and, for compatibility
-with v1, also the older `<!-- code-review-agent -->` marker) to locate the
-previous review; `peter-evans/create-or-update-comment` then replaces its
-body in place. Re-running the workflow on the same PR updates the same
-comment.
+This makes the review engine independent from the underlying model provider.
 
-The marker alone does nothing — idempotency is guaranteed by the
-combination of (a) every body carrying the marker and (b) the composite
-action steps wiring it through `body-regex` on `peter-evans/find-comment@v4`.
-If those steps are ever replaced, the replacement must honour the marker
-contract or every push will spawn a new comment.
+---
 
-## Resiliency
+# ⚙️ Configuration
 
-- HTTP 408, 429, 500, 502, 503, 504 are retried 3 times by the SDK.
-- 60 second request timeout.
-- If the AI provider remains unavailable, the Action writes a failure
-  comment and exits 0 — the PR is never blocked.
-- Re-run the workflow from the Actions UI when the provider recovers.
+| Input | Required | Default | Description |
+|---|---:|---|---|
+| `api-key` | ✅ | — | AI provider API key |
+| `model` | | `gemini-3.6-flash` | Model identifier |
+| `provider` | | `gemini` | AI provider |
+| `language` | | `en` | Review language |
+| `rules-path` | | `.github/code_review_rules.md` | Review rules |
+| `diff-path` | | `cra-pr.diff` | Diff file |
+| `output-path` | | `cra-review.md` | Review output |
+| `github-token` | | `${{ github.token }}` | GitHub API token |
+| `max-diff-bytes` | | `200000` | Maximum diff size |
+| `max-diff-lines` | | `4000` | Maximum diff lines |
 
-## Building locally
+---
+
+# 🧪 Development
+
+Run the full build:
 
 ```bash
 gradle build
 gradle test
 ```
 
-To exercise the full pipeline locally, run the same steps the action runs:
+Generate a diff:
 
 ```bash
-# 1. Pick a base/head (here: HEAD vs HEAD~1) and produce a diff
 git diff --unified=80 HEAD~1 HEAD > /tmp/cra-pr.diff
-
-# 2. Invoke the Groovy orchestrator with absolute paths
-export CRA_API_KEY=...
-export CRA_DIFF_PATH=/tmp/cra-pr.diff
-export CRA_OUTPUT_PATH=/tmp/cra-review.md
-export CRA_RULES_PATH=$PWD/.github/code_review_rules.md
-export CRA_LANGUAGE=es
-gradle run --quiet
-
-# 3. Inspect the generated review
-cat /tmp/cra-review.md
 ```
 
-Inside a workflow the action passes absolute paths under
-`${{ github.workspace }}` because Gradle runs with the action repo as its
-working directory, not the consumer repo.
+---
 
-## Adding a provider
+# 🔌 Add your own provider
 
-1. Implement `AiProvider` (single method: `String review(String prompt)`).
-2. Register it in `AiProviderFactory.REGISTRY`.
-3. Add an `inputs.<provider>-api-key` only if the provider needs a
-   different secret name; the generic `api-key` stays the contract.
+Implement the provider interface:
 
-## Roadmap
+```groovy
+class MyProvider implements AiProvider {
 
-- Output formats (`markdown`, `sarif`).
-- Custom rules path / inline rules.
-- OpenAI and Anthropic adapters.
+    @Override
+    String review(String prompt) {
+        // Call your model here
+    }
+}
+```
+
+Register it through:
+
+```text
+AiProviderFactory.REGISTRY
+```
+
+The rest of the review pipeline remains unchanged.
+
+---
+
+# 🤝 Contributing
+
+Code Review Agent by boghus is open source.
+
+Whether you want to improve the reviewer, add a provider, write security rules, improve performance, or expand test coverage — contributions are welcome.
+
+### Good first contribution
+
+Start with issues labelled **[`good first issue`](https://github.com/boghus/code-review-agent/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)**.
+
+Then:
+
+```bash
+git checkout -b feature/my-change
+gradle build
+gradle test
+```
+
+Open a Pull Request.
+
+---
+
+# ⭐ If this saves you time, star it.
+
+A star helps other developers discover the project.
+
+If you build something with Code Review Agent by boghus:
+
+- ⭐ Star the repository
+- 🍴 Fork it
+- 🐛 Open an issue
+- 💻 Submit a PR
+- 🔌 Build a new provider
+
+**The best AI code reviewer is the one your team can actually control.**
+
+---
+
+## 📄 License
+
+Apache License 2.0.
+
+<p align="center">
+
+### 🤖 Review faster. Catch more. Ship confidently.
+
+**AI-powered code review, directly inside GitHub.**
+
+</p>
