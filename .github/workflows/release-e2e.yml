@@ -1,0 +1,130 @@
+name: Code Review Agent - Release E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      consumer-repository:
+        description: 'Repository used as the external E2E consumer'
+        required: false
+        default: 'boghus/msp_energia'
+      consumer-workflow:
+        description: 'workflow_dispatch-enabled E2E workflow in the consumer repository'
+        required: false
+        default: 'code-review-agent.yml'
+      consumer-ref:
+        description: 'Consumer branch or ref containing the E2E workflow'
+        required: false
+        default: 'main'
+      scenarios:
+        description: 'Comma-separated scenarios to execute'
+        required: false
+        default: 'critical,high,medium,clean,idempotency,provider-failure,invalid-config'
+
+permissions:
+  contents: read
+
+jobs:
+  release-e2e:
+    name: E2E / ${{ matrix.scenario }}
+    if: contains(format(',{0},', inputs.scenarios), format(',{0},', matrix.scenario))
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - critical
+          - high
+          - medium
+          - clean
+          - idempotency
+          - provider-failure
+          - invalid-config
+
+    steps:
+      - name: Validate configuration
+        env:
+          CONSUMER_REPOSITORY: ${{ inputs.consumer-repository }}
+          CONSUMER_WORKFLOW: ${{ inputs.consumer-workflow }}
+          CONSUMER_REF: ${{ inputs.consumer-ref }}
+        run: |
+          set -euo pipefail
+          [[ "$CONSUMER_REPOSITORY" =~ ^[^/]+/[^/]+$ ]] || {
+            echo "::error::consumer-repository must use owner/repository format"
+            exit 1
+          }
+          [[ "$CONSUMER_WORKFLOW" != */* ]] || {
+            echo "::error::consumer-workflow must be a workflow file name or workflow ID, not a path"
+            exit 1
+          }
+          [[ "$CONSUMER_REF" != -* ]] || {
+            echo "::error::consumer-ref must not start with '-'
+            exit 1
+          }
+
+      - name: Dispatch consumer E2E
+        id: dispatch
+        env:
+          GH_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+          CONSUMER_REPOSITORY: ${{ inputs.consumer-repository }}
+          CONSUMER_WORKFLOW: ${{ inputs.consumer-workflow }}
+          CONSUMER_REF: ${{ inputs.consumer-ref }}
+          SCENARIO: ${{ matrix.scenario }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN" || {
+            echo "::error::Missing E2E_GITHUB_TOKEN secret"
+            exit 1
+          }
+
+          started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "started-at=$started_at" >> "$GITHUB_OUTPUT"
+
+          gh workflow run "$CONSUMER_WORKFLOW" \
+            --repo "$CONSUMER_REPOSITORY" \
+            --ref "$CONSUMER_REF" \
+            -f scenario="$SCENARIO"
+
+      - name: Wait for consumer E2E
+        env:
+          GH_TOKEN: ${{ secrets.E2E_GITHUB_TOKEN }}
+          CONSUMER_REPOSITORY: ${{ inputs.consumer-repository }}
+          CONSUMER_WORKFLOW: ${{ inputs.consumer-workflow }}
+          STARTED_AT: ${{ steps.dispatch.outputs.started-at }}
+        run: |
+          set -euo pipefail
+
+          deadline=$((SECONDS + 1800))
+          run_id=''
+
+          while (( SECONDS < deadline )); do
+            run_id="$(gh run list \
+              --repo "$CONSUMER_REPOSITORY" \
+              --workflow "$CONSUMER_WORKFLOW" \
+              --event workflow_dispatch \
+              --limit 20 \
+              --json databaseId,status,conclusion,createdAt \
+              --jq '.[] | select(.createdAt >= "'"$STARTED_AT"'") | .databaseId' \
+              | head -n 1)"
+
+            if [[ -n "$run_id" ]]; then
+              echo "Consumer E2E run: $run_id"
+              status="$(gh run view "$run_id" --repo "$CONSUMER_REPOSITORY" --json status --jq '.status')"
+              conclusion="$(gh run view "$run_id" --repo "$CONSUMER_REPOSITORY" --json conclusion --jq '.conclusion // ""')"
+
+              if [[ "$status" == completed ]]; then
+                if [[ "$conclusion" == success ]]; then
+                  echo "E2E passed: ${{ matrix.scenario }}"
+                  exit 0
+                fi
+
+                echo "::error::Consumer E2E failed: $conclusion"
+                gh run view "$run_id" --repo "$CONSUMER_REPOSITORY" --log-failed || true
+                exit 1
+              fi
+            fi
+
+            sleep 10
+          done
+
+          echo "::error::Timed out waiting for consumer E2E workflow"
+          exit 1
