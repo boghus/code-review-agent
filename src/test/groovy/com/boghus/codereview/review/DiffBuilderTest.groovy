@@ -38,6 +38,17 @@ class DiffBuilderTest {
     }
 
     @Test
+    void 'uses GitHub workspace as default working directory in Actions'() {
+        String workspace = System.getenv('GITHUB_WORKSPACE')
+        if (workspace == null || workspace.trim().isEmpty()) {
+            return
+        }
+
+        assertThat(DiffBuilder.defaultWorkingDirectory())
+            .isEqualTo(new File(workspace).canonicalFile)
+    }
+
+    @Test
     void 'rejects blank base sha'() {
         diffFile = File.createTempFile('cra-diff-', '.diff')
         assertThatThrownBy({ DiffBuilder.build(diffFile, '', 'head') })
