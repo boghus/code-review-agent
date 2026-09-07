@@ -1,6 +1,7 @@
 package com.boghus.codereview.review
 
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
@@ -40,9 +41,7 @@ class DiffBuilderTest {
     @Test
     void 'uses GitHub workspace as default working directory in Actions'() {
         String workspace = System.getenv('GITHUB_WORKSPACE')
-        if (workspace == null || workspace.trim().isEmpty()) {
-            return
-        }
+        Assumptions.assumeTrue(workspace != null && !workspace.trim().isEmpty())
 
         assertThat(DiffBuilder.defaultWorkingDirectory())
             .isEqualTo(new File(workspace).canonicalFile)
