@@ -152,8 +152,8 @@ Inside the action the resolved values are passed to Gradle as
 
 Drop a markdown file at `.github/code_review_rules.md` (default). It is
 **trusted configuration**: the reviewer treats its contents as instructions,
-not as data. Keep it short, factual and free of secrets — never put prompts
-that try to bypass the action's own system instructions in there.
+not as data. Keep it short, factual and free of secrets — never put
+prompts that try to bypass the action's own system instructions in there.
 
 ⚠️ **Trust boundary**: the rules file is read from the **PR base ref**
 (the branch the PR targets), not from the PR head. A contributor cannot
@@ -172,13 +172,13 @@ com.boghus.codereview
 ├── provider
 │   ├── AiProvider              contract
 │   ├── AiProviderFactory       registry
-│   └── GeminiAdapter           first implementation
+│   └── GeminiAdapter            first implementation
 ├── review
-│   ├── DiffAnalyzer            extracts changed files / lines
-│   ├── ReviewLanguage           supported review languages
-│   └── ReviewPromptBuilder     builds the prompt safely
+│   ├── DiffAnalyzer             extracts changed files / lines
+│   ├── ReviewLanguage            supported review languages
+│   └── ReviewPromptBuilder       builds the prompt safely
 └── output
-    └── ReviewReportWriter      writes the PR comment body
+    └── ReviewReportWriter        writes the PR comment body
 ```
 
 Posting the comment is delegated to `peter-evans/find-comment` +
@@ -207,6 +207,39 @@ contract or every push will spawn a new comment.
 - If the AI provider remains unavailable, the Action writes a failure
   comment and exits 0 — the PR is never blocked.
 - Re-run the workflow from the Actions UI when the provider recovers.
+
+## Release E2E
+
+The repository includes `.github/workflows/release-e2e.yml` as a release-time
+orchestration layer. It is intentionally **manual (`workflow_dispatch`)** so
+regular development PRs do not consume external E2E/Gemini quota.
+
+The workflow runs the release E2E matrix against an external consumer
+repository, currently intended to be `boghus/msp_energia`:
+
+- `critical`
+- `high`
+- `medium`
+- `clean`
+- `idempotency`
+- `provider-failure`
+
+`provider-failure` also covers the invalid-provider/configuration case; a
+separate duplicate scenario is not required.
+
+The consumer repository must expose a `workflow_dispatch`-enabled E2E
+workflow accepting a `scenario` input. The orchestrator dispatches one
+scenario at a time, waits for the consumer workflow to finish, and propagates
+its result. The matrix is serialized to avoid confusing concurrent runs.
+
+Before enabling this for a release, create an `E2E_GITHUB_TOKEN` repository
+secret with permission to dispatch and read workflow runs in the consumer
+repository. The token is used only by the orchestration workflow and is not
+passed to the Code Review Agent or the AI provider.
+
+This workflow is the automation foundation for future release candidates;
+the consumer-side `workflow_dispatch` fixture runner can be implemented and
+activated in the next release without changing the production review flow.
 
 ## Building locally
 
