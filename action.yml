@@ -125,6 +125,9 @@ runs:
         token: ${{ inputs.github-token }}
         issue-number: ${{ github.event.pull_request.number }}
         comment-author: github-actions[bot]
+        # Accept both the new marker and the legacy v1 marker so existing
+        # comments from earlier releases are picked up and replaced in
+        # place instead of producing a duplicate.
         body-regex: '<!-- code-review-agent-by-boghus -->|<!-- code-review-agent -->'
 
     - name: Create or update review comment
