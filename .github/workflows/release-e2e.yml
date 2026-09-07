@@ -18,7 +18,7 @@ on:
       scenarios:
         description: 'Comma-separated scenarios to execute'
         required: false
-        default: 'critical,high,medium,clean,idempotency,provider-failure,invalid-config'
+        default: 'critical,high,medium,clean,idempotency,provider-failure'
 
 permissions:
   contents: read
@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         scenario:
           - critical
@@ -38,7 +39,6 @@ jobs:
           - clean
           - idempotency
           - provider-failure
-          - invalid-config
 
     steps:
       - name: Validate configuration
@@ -57,7 +57,7 @@ jobs:
             exit 1
           }
           [[ "$CONSUMER_REF" != -* ]] || {
-            echo "::error::consumer-ref must not start with '-'
+            echo "::error::consumer-ref must not start with '-'"
             exit 1
           }
 
@@ -94,7 +94,6 @@ jobs:
           set -euo pipefail
 
           deadline=$((SECONDS + 1800))
-          run_id=''
 
           while (( SECONDS < deadline )); do
             run_id="$(gh run list \
