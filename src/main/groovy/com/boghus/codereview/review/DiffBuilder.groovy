@@ -88,7 +88,7 @@ class DiffBuilder {
         return lines
     }
 
-    private static File defaultWorkingDirectory() {
+    static File defaultWorkingDirectory() {
         new File(System.getenv('GITHUB_WORKSPACE') ?: '.').canonicalFile
     }
 }
