@@ -70,9 +70,9 @@ That's the whole integration.
 
 Real, animated walkthrough of the review pipeline — from PR event to published comment.
 
-![Demo](https://github.com/boghus/code-review-agent/releases/download/v1.0.0-rc.2/demo.gif)
+![Demo](docs/assets/demo/demo.gif)
 
-▶ [HD MP4 (1280×720)](https://github.com/boghus/code-review-agent/releases/download/v1.0.0-rc.2/demo.mp4) · 📦 [Source PR · boghus/code-review-agent#76](https://github.com/boghus/code-review-agent/pull/76)
+📦 [Source PR · boghus/code-review-agent#76](https://github.com/boghus/code-review-agent/pull/76)
 
 The demo is generated from the actual output of `boghus/code-review-agent` running against intentional QA fixtures (real workflow, real Gemini review, real PR comment). It corresponds to the behavior of `main` at the time of the v1.0.0-rc.2 release.
 
