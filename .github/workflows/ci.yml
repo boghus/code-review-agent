@@ -10,8 +10,6 @@ permissions:
   contents: read
   pull-requests: write
 
-# Keep pipeline behavior in one place. New execution contexts can be added
-# here without duplicating the individual pipeline jobs.
 env:
   SELF_REVIEW_GEMINI_MODEL: gemini-3.6-flash
 
@@ -69,7 +67,19 @@ jobs:
           distribution: temurin
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
-      - run: gradle build --no-daemon
+      - run: gradle assemble --no-daemon
+
+  tests:
+    needs: context
+    if: needs.context.outputs.run_tests == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
       - run: gradle test --no-daemon
       - name: Verify GitHub token isolation
         shell: bash
@@ -79,6 +89,7 @@ jobs:
     needs: context
     name: Self-review with Code Review Agent
     if: needs.context.outputs.run_self_review == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout PR head
         uses: actions/checkout@v5
@@ -147,17 +158,10 @@ jobs:
               });
             }
 
-      # A failing dedicated check gives repository branch protection a stable
-      # status to require for preventing QA PR merges.
+      # Require this check in repository branch protection to make the
+      # validation-only nature of QA PRs an enforced merge restriction.
       - name: Block QA merge
         shell: bash
         run: |
           echo "QA merge is intentionally blocked."
           exit 1
-
-  development-merge-status:
-    needs: context
-    if: needs.context.outputs.allow_merge == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "Development context keeps the normal merge flow."
