@@ -45,8 +45,20 @@ class CodeReview {
         }
 
         File diffFile = new File(inputs.diffPath)
+        File repositoryDirectory = new File(System.getenv('GITHUB_WORKSPACE') ?: '.').canonicalFile
+        println "Code Review Agent: repository workspace=${repositoryDirectory}"
+
         try {
-            DiffBuilder.build(diffFile, inputs.baseSha, inputs.headSha)
+            // Gradle runs this application with the action project as its
+            // project directory (-p GITHUB_ACTION_PATH). Git operations must
+            // always run against the checked-out repository workspace.
+            DiffBuilder.build(
+                diffFile,
+                inputs.baseSha,
+                inputs.headSha,
+                DiffBuilder.DEFAULT_CONTEXT_LINES,
+                repositoryDirectory
+            )
         } catch (Exception ex) {
             writer.writeFailure(inputs.outputPath, "Failed to generate Git diff: ${ex.message}")
             println "Code Review Agent: ${RuntimeErrorSanitizer.sanitize(ex)}"
@@ -61,7 +73,6 @@ class CodeReview {
 
         String rules
         try {
-            File repositoryDirectory = new File(System.getenv('GITHUB_WORKSPACE') ?: '.').canonicalFile
             rules = TrustedRulesLoader.load(inputs.baseSha, inputs.rulesPath, repositoryDirectory)
         } catch (IllegalArgumentException ex) {
             writer.writeTrustedRulesFailure(
