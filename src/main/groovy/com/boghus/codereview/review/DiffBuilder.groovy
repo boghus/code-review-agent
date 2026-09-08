@@ -16,15 +16,16 @@ class DiffBuilder {
 
     /**
      * Runs {@code git diff} between the given SHAs and writes the unified
-     * diff to {@code output}. Both SHAs must already be reachable from the
-     * working repository. The GitHub Actions checkout step guarantees this
-     * for the PR context; tests can pass an explicit {@code workingDir}.
+     * diff to {@code output}. When no working directory is supplied, the
+     * GitHub Actions workspace is preferred over the Java process cwd.
+     * This is important for composite actions: Gradle's project directory
+     * can differ from the repository workspace.
      *
      * @param output       file receiving the unified diff
      * @param baseSha      SHA at the PR base (inclusive)
      * @param headSha      SHA at the PR head (inclusive)
      * @param contextLines number of context lines (default 80)
-     * @param workingDir   git working directory (default: current process cwd)
+     * @param workingDir   git working directory; defaults to GITHUB_WORKSPACE
      * @return the number of lines written, or 0 if the diff was empty
      */
     static int build(File output, String baseSha, String headSha,
@@ -43,6 +44,18 @@ class DiffBuilder {
             throw new IllegalArgumentException('contextLines must be positive')
         }
 
+        File effectiveWorkingDir = workingDir ?: new File(
+            System.getenv('GITHUB_WORKSPACE') ?: '.'
+        )
+        if (!effectiveWorkingDir.isDirectory()) {
+            throw new IllegalStateException(
+                "Git working directory does not exist: ${effectiveWorkingDir.absolutePath}"
+            )
+        }
+
+        println "Code Review Agent: building diff in ${effectiveWorkingDir.canonicalPath}"
+        println "Code Review Agent: diff base=${baseSha}, head=${headSha}"
+
         String unifiedFlag = "--unified=${contextLines}".toString()
         ProcessBuilder pb = new ProcessBuilder(
             'git', 'diff',
@@ -51,9 +64,7 @@ class DiffBuilder {
             baseSha,
             headSha
         )
-        if (workingDir != null) {
-            pb.directory(workingDir)
-        }
+        pb.directory(effectiveWorkingDir)
         Process process = pb.start()
 
         File parent = output.parentFile
@@ -71,7 +82,8 @@ class DiffBuilder {
             output.delete()
             String error = errorStream.toString('UTF-8').trim()
             throw new IllegalStateException(
-                "git diff failed (exit=${exit}): ${error}"
+                "git diff failed (exit=${exit}, cwd=${effectiveWorkingDir.canonicalPath}, " +
+                "base=${baseSha}, head=${headSha}): ${error}"
             )
         }
 
