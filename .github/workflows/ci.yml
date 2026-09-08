@@ -10,11 +10,57 @@ permissions:
   contents: read
   pull-requests: write
 
+# Keep pipeline behavior in one place. New execution contexts can be added
+# here without duplicating the individual pipeline jobs.
 env:
   SELF_REVIEW_GEMINI_MODEL: gemini-3.6-flash
 
 jobs:
+  context:
+    name: Determine pipeline context
+    runs-on: ubuntu-latest
+    outputs:
+      is_qa: ${{ steps.context.outputs.is_qa }}
+      run_build: ${{ steps.context.outputs.run_build }}
+      run_tests: ${{ steps.context.outputs.run_tests }}
+      run_self_review: ${{ steps.context.outputs.run_self_review }}
+      run_second_reviewer: ${{ steps.context.outputs.run_second_reviewer }}
+      allow_merge: ${{ steps.context.outputs.allow_merge }}
+    steps:
+      - id: context
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          is_qa=false
+          run_build=true
+          run_tests=true
+          run_self_review=false
+          run_second_reviewer=true
+          allow_merge=true
+
+          if [[ "$EVENT_NAME" == "pull_request" && "$HEAD_REF" == qa/* ]]; then
+            is_qa=true
+            run_build=false
+            run_tests=false
+            run_self_review=true
+            run_second_reviewer=false
+            allow_merge=false
+          elif [[ "$EVENT_NAME" == "pull_request" ]]; then
+            run_self_review=true
+          fi
+
+          echo "is_qa=$is_qa" >> "$GITHUB_OUTPUT"
+          echo "run_build=$run_build" >> "$GITHUB_OUTPUT"
+          echo "run_tests=$run_tests" >> "$GITHUB_OUTPUT"
+          echo "run_self_review=$run_self_review" >> "$GITHUB_OUTPUT"
+          echo "run_second_reviewer=$run_second_reviewer" >> "$GITHUB_OUTPUT"
+          echo "allow_merge=$allow_merge" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: context
+    if: needs.context.outputs.run_build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -30,9 +76,9 @@ jobs:
         run: bash scripts/security-check-github-token.sh
 
   self-review:
+    needs: context
     name: Self-review with Code Review Agent
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
+    if: needs.context.outputs.run_self_review == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
     steps:
       - name: Checkout PR head
         uses: actions/checkout@v5
@@ -43,6 +89,7 @@ jobs:
       - name: Show self-review configuration
         shell: bash
         run: |
+          echo "Pipeline context: ${{ needs.context.outputs.is_qa == 'true' && 'qa' || 'development' }}"
           echo "Code Review Agent self-review provider: gemini"
           echo "Code Review Agent self-review model: ${SELF_REVIEW_GEMINI_MODEL}"
           echo "Code Review Agent self-review language: es"
@@ -57,3 +104,60 @@ jobs:
           provider: gemini
           language: es
           github-token: ${{ github.token }}
+
+  qa-merge-guard:
+    needs: context
+    name: QA merge guard
+    if: needs.context.outputs.is_qa == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain QA merge restriction
+        shell: bash
+        run: |
+          echo "🧪 Esta es una rama de QA, por lo tanto este PR no puede mergearse."
+          echo "QA PRs are validation-only and must not be merged through the normal flow."
+
+      - name: Comment QA merge restriction
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const marker = '<!-- qa-merge-guard -->';
+            const body = `${marker}\n🧪 Esta es una rama de QA, por lo tanto este PR no puede mergearse.\n\nEste PR pertenece al flujo de validación de QA y no debe incorporarse mediante el flujo normal.`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100
+            });
+
+            const existing = comments.find(comment => comment.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            }
+
+      # A failing dedicated check gives repository branch protection a stable
+      # status to require for preventing QA PR merges.
+      - name: Block QA merge
+        shell: bash
+        run: |
+          echo "QA merge is intentionally blocked."
+          exit 1
+
+  development-merge-status:
+    needs: context
+    if: needs.context.outputs.allow_merge == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Development context keeps the normal merge flow."
