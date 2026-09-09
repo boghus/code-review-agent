@@ -66,7 +66,11 @@ jobs:
               allow_merge=false
               ;;
             development)
+              run_build=true
+              run_tests=true
               run_self_review=true
+              run_second_reviewer=true
+              allow_merge=true
               ;;
             *)
               echo "Unsupported pipeline profile: $PROFILE" >&2
