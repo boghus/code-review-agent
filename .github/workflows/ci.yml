@@ -18,12 +18,7 @@ jobs:
     name: Determine pipeline context
     runs-on: ubuntu-latest
     outputs:
-      is_qa: ${{ steps.context.outputs.is_qa }}
-      run_build: ${{ steps.context.outputs.run_build }}
-      run_tests: ${{ steps.context.outputs.run_tests }}
-      run_self_review: ${{ steps.context.outputs.run_self_review }}
-      run_second_reviewer: ${{ steps.context.outputs.run_second_reviewer }}
-      allow_merge: ${{ steps.context.outputs.allow_merge }}
+      profile: ${{ steps.context.outputs.profile }}
     steps:
       - id: context
         shell: bash
@@ -31,25 +26,61 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          is_qa=false
+          profile=development
+
+          if [[ "$EVENT_NAME" == "pull_request" && "$HEAD_REF" == qa/* ]]; then
+            profile=qa
+          fi
+
+          echo "Pipeline context: $profile"
+          echo "profile=$profile" >> "$GITHUB_OUTPUT"
+
+  policy:
+    name: Determine pipeline policy
+    needs: context
+    runs-on: ubuntu-latest
+    outputs:
+      run_build: ${{ steps.policy.outputs.run_build }}
+      run_tests: ${{ steps.policy.outputs.run_tests }}
+      run_self_review: ${{ steps.policy.outputs.run_self_review }}
+      run_second_reviewer: ${{ steps.policy.outputs.run_second_reviewer }}
+      allow_merge: ${{ steps.policy.outputs.allow_merge }}
+    steps:
+      - id: policy
+        shell: bash
+        env:
+          PROFILE: ${{ needs.context.outputs.profile }}
+        run: |
           run_build=true
           run_tests=true
           run_self_review=false
           run_second_reviewer=true
           allow_merge=true
 
-          if [[ "$EVENT_NAME" == "pull_request" && "$HEAD_REF" == qa/* ]]; then
-            is_qa=true
-            run_build=false
-            run_tests=false
-            run_self_review=true
-            run_second_reviewer=false
-            allow_merge=false
-          elif [[ "$EVENT_NAME" == "pull_request" ]]; then
-            run_self_review=true
-          fi
+          case "$PROFILE" in
+            qa)
+              run_build=false
+              run_tests=false
+              run_self_review=true
+              run_second_reviewer=false
+              allow_merge=false
+              ;;
+            development)
+              run_self_review=true
+              ;;
+            *)
+              echo "Unsupported pipeline profile: $PROFILE" >&2
+              exit 1
+              ;;
+          esac
 
-          echo "is_qa=$is_qa" >> "$GITHUB_OUTPUT"
+          echo "Pipeline policy for $PROFILE:"
+          echo "  build=$run_build"
+          echo "  tests=$run_tests"
+          echo "  self-review=$run_self_review"
+          echo "  second-reviewer=$run_second_reviewer"
+          echo "  allow-merge=$allow_merge"
+
           echo "run_build=$run_build" >> "$GITHUB_OUTPUT"
           echo "run_tests=$run_tests" >> "$GITHUB_OUTPUT"
           echo "run_self_review=$run_self_review" >> "$GITHUB_OUTPUT"
@@ -57,8 +88,8 @@ jobs:
           echo "allow_merge=$allow_merge" >> "$GITHUB_OUTPUT"
 
   build:
-    needs: context
-    if: needs.context.outputs.run_build == 'true'
+    needs: policy
+    if: needs.policy.outputs.run_build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -70,8 +101,8 @@ jobs:
       - run: gradle assemble --no-daemon
 
   tests:
-    needs: context
-    if: needs.context.outputs.run_tests == 'true'
+    needs: policy
+    if: needs.policy.outputs.run_tests == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -86,9 +117,9 @@ jobs:
         run: bash scripts/security-check-github-token.sh
 
   self-review:
-    needs: context
+    needs: policy
     name: Self-review with Code Review Agent
-    if: needs.context.outputs.run_self_review == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
+    if: needs.policy.outputs.run_self_review == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR head
@@ -100,7 +131,7 @@ jobs:
       - name: Show self-review configuration
         shell: bash
         run: |
-          echo "Pipeline context: ${{ needs.context.outputs.is_qa == 'true' && 'qa' || 'development' }}"
+          echo "Pipeline profile: ${{ needs.policy.outputs.run_self_review == 'true' && 'qa/development policy' || 'disabled' }}"
           echo "Code Review Agent self-review provider: gemini"
           echo "Code Review Agent self-review model: ${SELF_REVIEW_GEMINI_MODEL}"
           echo "Code Review Agent self-review language: es"
@@ -117,9 +148,9 @@ jobs:
           github-token: ${{ github.token }}
 
   qa-merge-guard:
-    needs: context
+    needs: [context, policy]
     name: QA merge guard
-    if: needs.context.outputs.is_qa == 'true'
+    if: needs.context.outputs.profile == 'qa'
     runs-on: ubuntu-latest
     steps:
       - name: Explain QA merge restriction
