@@ -128,35 +128,50 @@ jobs:
           echo "🧪 Esta es una rama de QA, por lo tanto este PR no puede mergearse."
           echo "QA PRs are validation-only and must not be merged through the normal flow."
 
-      - name: Comment QA merge restriction
-        uses: actions/github-script@v8
+      - name: Find existing QA notice
+        uses: peter-evans/find-comment@v3
+        id: qa-notice
         with:
-          script: |
-            const marker = '<!-- qa-merge-guard -->';
-            const body = `${marker}\n🧪 Esta es una rama de QA, por lo tanto este PR no puede mergearse.\n\nEste PR pertenece al flujo de validación de QA y no debe incorporarse mediante el flujo normal.`;
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100
-            });
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '<!-- qa-merge-guard -->'
 
-            const existing = comments.find(comment => comment.body?.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body
-              });
-            }
+      - name: Create QA notice
+        if: steps.qa-notice.outputs.comment-id == ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            <!-- qa-merge-guard -->
+            ## 🧪 QA validation only
+
+            This PR is targeting a **QA branch** and is intended for validation only.
+
+            **It will not be merged through the normal development flow.**
+
+            - Build and normal tests are skipped.
+            - The Code Review Agent still runs.
+            - The second reviewer is skipped.
+            - This PR must not be merged.
+
+      - name: Update QA notice
+        if: steps.qa-notice.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ steps.qa-notice.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            <!-- qa-merge-guard -->
+            ## 🧪 QA validation only
+
+            This PR is targeting a **QA branch** and is intended for validation only.
+
+            **It will not be merged through the normal development flow.**
+
+            - Build and normal tests are skipped.
+            - The Code Review Agent still runs.
+            - The second reviewer is skipped.
+            - This PR must not be merged.
 
       # Require this check in repository branch protection to make the
       # validation-only nature of QA PRs an enforced merge restriction.
