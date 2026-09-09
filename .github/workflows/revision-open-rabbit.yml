@@ -14,8 +14,11 @@ concurrency:
 
 jobs:
   review:
+    name: OpenRabbit review
     runs-on: ubuntu-latest
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false
+    # QA PRs use the dedicated Code Review Agent validation path and must not
+    # trigger the second automatic reviewer.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false && !startsWith(github.event.pull_request.head.ref, 'qa/')
     steps:
       - name: OpenRabbit review
         uses: aryanbrite/openrabbit@a05dc7e11748a93a3518553c3de82a98eba9df0f # v0.8.7
