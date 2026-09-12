@@ -115,7 +115,13 @@ jobs:
           distribution: temurin
           java-version: '25'
       - uses: gradle/actions/setup-gradle@v4
-      - run: gradle test --no-daemon
+      - run: gradle test jacocoTestReport --no-daemon
+      - name: Upload JaCoCo coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage-report
+          path: build/reports/jacoco/test/
+          if-no-files-found: error
       - name: Verify GitHub token isolation
         shell: bash
         run: bash scripts/security-check-github-token.sh
