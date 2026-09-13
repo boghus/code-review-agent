@@ -1,7 +1,6 @@
 plugins {
     id 'groovy'
     id 'application'
-    id 'jacoco'
 }
 
 group = 'com.boghus.codereview'
@@ -42,19 +41,5 @@ tasks.withType(GroovyCompile).configureEach {
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
-    }
-}
-
-jacoco {
-    toolVersion = '0.8.14'
-}
-
-tasks.named('jacocoTestReport') {
-    dependsOn tasks.named('test')
-
-    reports {
-        html.required = true
-        xml.required = true
-        csv.required = false
     }
 }
