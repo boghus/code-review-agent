@@ -25,14 +25,65 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate JaCoCo and diff coverage
+      - name: Debug Git context
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
         run: |
+          echo "=== GitHub context ==="
+          echo "event: $EVENT_NAME"
+          echo "ref: $REF"
+          echo "base_sha: $BASE_SHA"
+          echo "head_sha: $HEAD_SHA"
+          echo "github_sha: $GITHUB_SHA"
+          echo
+          echo "=== Git status ==="
+          git status --short
+          echo
+          echo "=== Current commit ==="
+          git rev-parse HEAD
+          echo
+          echo "=== Changed files: base -> HEAD ==="
+          git diff --name-status "$BASE_SHA" "$HEAD_SHA"
+          echo
+          echo "=== Changed source files: base -> HEAD ==="
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- '*.groovy' '*.java' '*.kt'
+
+      - name: Generate JaCoCo
+        run: |
+          echo "=== Generating JaCoCo report ==="
           gradle jacocoTestReport --no-daemon
+          echo
+          echo "=== JaCoCo files ==="
+          find build/reports/jacoco -maxdepth 4 -type f -print | sort
+          echo
+          echo "=== JaCoCo XML ==="
+          test -f build/reports/jacoco/test/jacocoTestReport.xml
+          wc -c build/reports/jacoco/test/jacocoTestReport.xml
+
+      - name: Generate diff coverage
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "=== Running diff coverage ==="
+          echo "diffSha: $BASE_SHA"
+          echo "report: build/reports/jacoco/test/jacocoTestReport.xml"
           gradle reportDiffCoverage --no-daemon \
             --diffSha="$BASE_SHA" \
             --report=build/reports/jacoco/test/jacocoTestReport.xml
+          exit_code=$?
+          echo "diff coverage exit code: $exit_code"
+          echo
+          echo "=== Coverage report directory ==="
+          if [ -d build/reports/coverage ]; then
+            find build/reports/coverage -maxdepth 3 -type f -print -exec sh -c 'echo "--- $1"; cat "$1"' _ {} \;
+          else
+            echo "build/reports/coverage does not exist"
+          fi
+          exit "$exit_code"
 
       - name: Publish HTML report artifact
         uses: actions/upload-artifact@v4
@@ -45,7 +96,15 @@ jobs:
         id: coverage
         shell: bash
         run: |
+          echo "=== Reading diff coverage result ==="
           result_file="build/reports/coverage/report.txt"
+          echo "result_file: $result_file"
+          if [ ! -f "$result_file" ]; then
+            echo "ERROR: diff coverage result file was not generated"
+            echo "=== Coverage directory ==="
+            find build/reports/coverage -maxdepth 3 -type f -print 2>/dev/null || true
+            exit 1
+          fi
           cat "$result_file"
           {
             echo 'result<<EOF'
