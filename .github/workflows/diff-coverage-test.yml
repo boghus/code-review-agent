@@ -1,0 +1,93 @@
+name: Diff Coverage Experiment
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  diff-coverage:
+    name: Diff coverage
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR with full history
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate JaCoCo and diff coverage
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          gradle jacocoTestReport --no-daemon
+          gradle reportDiffCoverage --no-daemon \
+            --diffSha="$BASE_SHA" \
+            --report=build/reports/jacoco/test/jacocoTestReport.xml
+
+      - name: Publish HTML report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-html-report
+          path: build/reports/jacoco/test/
+          if-no-files-found: error
+
+      - name: Read diff coverage result
+        id: coverage
+        shell: bash
+        run: |
+          result_file="build/reports/coverage/report.txt"
+          cat "$result_file"
+          {
+            echo 'result<<EOF'
+            cat "$result_file"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Find existing coverage comment
+        uses: peter-evans/find-comment@v3
+        id: coverage-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '<!-- diff-coverage-report -->'
+
+      - name: Create coverage comment
+        if: steps.coverage-comment.outputs.comment-id == ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            <!-- diff-coverage-report -->
+            ## 🧪 Test Coverage
+
+            ```text
+            ${{ steps.coverage.outputs.result }}
+            ```
+
+            📊 Detailed JaCoCo report is available in the workflow artifacts.
+
+      - name: Update coverage comment
+        if: steps.coverage-comment.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ steps.coverage-comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            <!-- diff-coverage-report -->
+            ## 🧪 Test Coverage
+
+            ```text
+            ${{ steps.coverage.outputs.result }}
+            ```
+
+            📊 Detailed JaCoCo report is available in the workflow artifacts.
