@@ -1,6 +1,8 @@
 plugins {
     id 'groovy'
     id 'application'
+    id 'jacoco'
+    id 'xyz.pavelkorolev.coverage.diff' version '0.2.0'
 }
 
 group = 'com.boghus.codereview'
@@ -27,9 +29,18 @@ application {
 
 tasks.named('test') {
     useJUnitPlatform()
+    finalizedBy tasks.named('jacocoTestReport')
     testLogging {
         events 'passed', 'skipped', 'failed'
         showStandardStreams = false
+    }
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+        html.required = true
     }
 }
 
