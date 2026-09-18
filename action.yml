@@ -60,7 +60,7 @@ runs:
       uses: gradle/actions/setup-gradle@v4
 
     - name: Checkout PR head
-      uses: actions/checkout@v5
+      uses: actions/checkout@v7
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
