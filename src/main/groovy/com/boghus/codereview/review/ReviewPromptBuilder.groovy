@@ -24,7 +24,9 @@ Security instructions:
 - Follow the repository rules below as trusted review configuration.
 - Begin with: ## 🤖 Code Review Agent by boghus
 - Include a short summary with severity counts and an APPROVE / CHANGES_REQUESTED verdict.
-- For each finding use:
+- For each finding, follow the structured Finding contract below and render all fields in the existing markdown format.
+${Finding.PROMPT_CONTRACT}
+- Render each finding as:
     ### [CRITICAL|HIGH|MEDIUM|LOW] Short title
     - **File:** path
     - **Lines:** number or range when known
@@ -32,6 +34,8 @@ Security instructions:
     **Problem:** ...
     **Impact:** ...
     **Suggested fix:** ...
+    **Evidence:** ...
+    **Verification:** Verified | Unverified
 - End with a totals block.
 - If no findings, say so explicitly. Never invent issues.
 - Respond in ${language.promptName}.""".stripIndent()

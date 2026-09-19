@@ -2,7 +2,6 @@ plugins {
     id 'groovy'
     id 'application'
     id 'jacoco'
-    id 'xyz.pavelkorolev.coverage.diff' version '0.2.0'
 }
 
 group = 'com.boghus.codereview'
@@ -41,6 +40,39 @@ tasks.named('jacocoTestReport') {
     reports {
         xml.required = true
         html.required = true
+    }
+}
+
+tasks.register('reportDiffCoverage') {
+    group = 'verification'
+    description = 'Analyzes JaCoCo coverage for executable lines changed since a git base commit'
+
+    doLast {
+        String diffSha = project.findProperty('diffSha')
+        String report = project.findProperty('report')
+        if (!diffSha) {
+            throw new GradleException('Missing required --diffSha argument')
+        }
+        if (!report) {
+            throw new GradleException('Missing required --report argument')
+        }
+
+        File reportFile = file(report)
+        def result = com.boghus.codereview.coverage.DiffCoverageAnalyzer.analyze(
+            diffSha,
+            reportFile,
+            project.projectDir
+        )
+
+        File outputFile = file(project.findProperty('output') ?: 'build/reports/coverage/report.txt')
+        com.boghus.codereview.coverage.DiffCoverageAnalyzer.writeReport(result, outputFile)
+
+        if (result.analyzedLines == 0) {
+            logger.lifecycle('No executable lines found in the changed code')
+        } else {
+            logger.lifecycle("Diff coverage: \${result.coveredLines}/\${result.analyzedLines} (\${result.coveredLines * 100.0 / result.analyzedLines}%)")
+            logger.lifecycle("Report saved to: \${outputFile}")
+        }
     }
 }
 
