@@ -78,6 +78,19 @@ class ReviewPromptBuilderTest {
     }
 
     @Test
+    void 'includes finding evidence and verification rules'() {
+        def request = builder.buildRequest('', '')
+
+        assertThat(request.developerInstructions)
+            .contains('Finding contract')
+            .contains('evidence:')
+            .contains('verified: true only when')
+            .contains('set verified to false')
+            .contains('Do not present that external claim as a fact')
+            .contains('Never invent evidence or sources')
+    }
+
+    @Test
     void 'requests the review in Spanish'() {
         def request = builder.buildRequest('', '', ReviewLanguage.SPANISH)
 
