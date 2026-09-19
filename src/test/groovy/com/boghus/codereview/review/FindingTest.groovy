@@ -17,4 +17,24 @@ class FindingTest {
             .contains('Do not present that external claim as a fact')
             .contains('Never invent evidence or sources')
     }
+    @Test
+    void 'stores finding evidence and verification state'() {
+        Finding finding = new Finding(
+            'MEDIUM',
+            'External claim',
+            'src/main.groovy',
+            '10-12',
+            'The claim cannot be verified from the diff.',
+            'It may produce a false positive.',
+            'Verify the claim before acting.',
+            'No verified external source was supplied.',
+            false
+        )
+
+        assertThat(finding.severity).isEqualTo('MEDIUM')
+        assertThat(finding.evidence).contains('No verified external source')
+        assertThat(finding.verified).isFalse()
+    }
+
 }
+
