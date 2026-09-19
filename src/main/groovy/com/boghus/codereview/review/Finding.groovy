@@ -12,6 +12,45 @@ import groovy.transform.CompileStatic
 @CompileStatic
 class Finding {
 
+    final String severity
+    final String title
+    final String file
+    final String lines
+    final String problem
+    final String impact
+    final String suggestedFix
+    final String evidence
+    final boolean verified
+
+    Finding(
+        String severity,
+        String title,
+        String file,
+        String lines,
+        String problem,
+        String impact,
+        String suggestedFix,
+        String evidence,
+        boolean verified
+    ) {
+        this.severity = requireValue(severity, 'severity')
+        this.title = requireValue(title, 'title')
+        this.file = requireValue(file, 'file')
+        this.lines = lines
+        this.problem = requireValue(problem, 'problem')
+        this.impact = requireValue(impact, 'impact')
+        this.suggestedFix = requireValue(suggestedFix, 'suggestedFix')
+        this.evidence = requireValue(evidence, 'evidence')
+        this.verified = verified
+    }
+
+    private static String requireValue(String value, String fieldName) {
+        if (!value?.trim()) {
+            throw new IllegalArgumentException("Finding field '" + fieldName + "' must not be blank.")
+        }
+        return value
+    }
+
     static final String PROMPT_CONTRACT = '''For each finding, use these fields:
 - severity: CRITICAL, HIGH, MEDIUM, or LOW
 - title: short title
