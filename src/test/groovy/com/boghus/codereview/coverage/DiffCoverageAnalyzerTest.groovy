@@ -109,15 +109,42 @@ class DiffCoverageAnalyzerTest {
     }
 
     @Test
-    void 'reports mapping error when source exists but changed line is absent from JaCoCo'() {
+    void 'ignores changed lines that JaCoCo does not report as executable lines'() {
         DiffCoverageResult result = analyzer.analyze(
             [new ChangedSourceLine('src/main/groovy/com/foo/Foo.groovy', 20)],
             jacoco('com/foo', 'Foo.groovy', 10, 0, 1)
         )
 
-        assertThat(result.status).isEqualTo(DiffCoverageStatus.MAPPING_ERROR)
+        assertThat(result.status).isEqualTo(DiffCoverageStatus.NO_EXECUTABLE_CHANGES)
         assertThat(result.changedLines).isEqualTo(1)
-        assertThat(result.message).contains('could not be mapped')
+        assertThat(result.executableLines).isZero()
+    }
+
+    @Test
+    void 'calculates coverage using only JaCoCo executable lines from mixed changes'() {
+        List<ChangedSourceLine> changes = [
+            new ChangedSourceLine('src/main/groovy/com/foo/Foo.groovy', 10),
+            new ChangedSourceLine('src/main/groovy/com/foo/Foo.groovy', 11),
+            new ChangedSourceLine('src/main/groovy/com/foo/Foo.groovy', 12)
+        ]
+
+        String xml = '''<report>
+            <package name="com/foo">
+                <sourcefile name="Foo.groovy">
+                    <line nr="10" mi="0" ci="1"/>
+                    <line nr="12" mi="1" ci="0"/>
+                </sourcefile>
+            </package>
+        </report>'''
+
+        DiffCoverageResult result = analyzer.analyze(changes, xml)
+
+        assertThat(result.status).isEqualTo(DiffCoverageStatus.COVERAGE_AVAILABLE)
+        assertThat(result.changedLines).isEqualTo(3)
+        assertThat(result.executableLines).isEqualTo(2)
+        assertThat(result.coveredLines).isEqualTo(1)
+        assertThat(result.missedLines).isEqualTo(1)
+        assertThat(result.coveragePercentage()).isEqualByComparingTo('50.00')
     }
 
     @Test
