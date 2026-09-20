@@ -2,7 +2,6 @@ plugins {
     id 'groovy'
     id 'application'
     id 'jacoco'
-    id 'xyz.pavelkorolev.coverage.diff' version '0.2.0'
 }
 
 group = 'com.boghus.codereview'
@@ -42,6 +41,12 @@ tasks.named('jacocoTestReport') {
         xml.required = true
         html.required = true
     }
+}
+
+tasks.register('diffCoverage', JavaExec) {
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.boghus.codereview.coverage.DiffCoverageCli'
 }
 
 tasks.withType(GroovyCompile).configureEach {
