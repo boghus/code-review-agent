@@ -3,7 +3,6 @@ package com.boghus.codereview.coverage
 import com.boghus.codereview.review.DiffAnalyzer
 import groovy.transform.CompileStatic
 import groovy.xml.XmlSlurper
-import groovy.util.slurpersupport.GPathResult
 
 @CompileStatic
 class DiffCoverageAnalyzer {
@@ -116,18 +115,18 @@ class DiffCoverageAnalyzer {
             throw new IllegalArgumentException('JaCoCo XML is empty.')
         }
 
-        GPathResult root = new XmlSlurper(false, false).parseText(jacocoXml)
+        def root = new XmlSlurper(false, false).parseText(jacocoXml)
         List<JaCoCoSourceLine> lines = []
         Set<String> sourcePaths = new LinkedHashSet<>()
 
         root.children().findAll { Object node -> node instanceof GPathResult && ((GPathResult) node).name() == 'package' }.each { Object packageObject ->
-            GPathResult packageNode = (GPathResult) packageObject
+            def packageNode = packageObject
             String packagePath = packageNode.attributes().get('name')?.toString() ?: ''
 
             packageNode.children().findAll { Object node ->
                 node instanceof GPathResult && ((GPathResult) node).name() == 'sourcefile'
             }.each { Object sourceObject ->
-                GPathResult sourceNode = (GPathResult) sourceObject
+                def sourceNode = sourceObject
                 String sourceFile = sourceNode.attributes().get('name')?.toString() ?: ''
                 String sourcePath = packagePath ? packagePath + '/' + sourceFile : sourceFile
                 sourcePaths << sourcePath
@@ -135,7 +134,7 @@ class DiffCoverageAnalyzer {
                 sourceNode.children().findAll { Object node ->
                     node instanceof GPathResult && ((GPathResult) node).name() == 'line'
                 }.each { Object lineObject ->
-                    GPathResult lineNode = (GPathResult) lineObject
+                    def lineNode = lineObject
                     int lineNumber = Integer.parseInt(lineNode.attributes().get('nr').toString())
                     int missedInstructions = Integer.parseInt(lineNode.attributes().get('mi').toString())
                     int coveredInstructions = Integer.parseInt(lineNode.attributes().get('ci').toString())
