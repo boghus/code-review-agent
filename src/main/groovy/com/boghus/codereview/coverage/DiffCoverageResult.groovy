@@ -27,7 +27,7 @@ class DiffCoverageResult {
         this.changedLines = changedLines
         this.executableLines = executableLines
         this.coveredLines = coveredLines
-        this.missedLines = missed
+        this.missedLines = missedLines
         this.covered = Collections.unmodifiableList(new ArrayList<>(covered))
         this.missed = Collections.unmodifiableList(new ArrayList<>(missed))
         this.message = message
