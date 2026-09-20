@@ -37,6 +37,7 @@ class DiffCoverageResult {
         if (executableLines == 0) {
             return 0G
         }
-        return (coveredLines * 100G).divide(executableLines as BigDecimal, 2, BigDecimal.ROUND_HALF_UP)
+        return BigDecimal.valueOf(coveredLines * 100L)
+            .divide(BigDecimal.valueOf(executableLines as long), 2, BigDecimal.ROUND_HALF_UP)
     }
 }
