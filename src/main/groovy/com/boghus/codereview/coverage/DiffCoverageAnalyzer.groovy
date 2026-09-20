@@ -2,6 +2,7 @@ package com.boghus.codereview.coverage
 
 import com.boghus.codereview.review.DiffAnalyzer
 import groovy.transform.CompileStatic
+import groovy.transform.TypeCheckingMode
 import groovy.xml.XmlSlurper
 
 @CompileStatic
@@ -110,6 +111,7 @@ class DiffCoverageAnalyzer {
         )
     }
 
+    @CompileStatic(TypeCheckingMode.SKIP)
     private ParsedJaCoCo parseJaCoCo(String jacocoXml) {
         if (!jacocoXml?.trim()) {
             throw new IllegalArgumentException('JaCoCo XML is empty.')
@@ -119,25 +121,19 @@ class DiffCoverageAnalyzer {
         List<JaCoCoSourceLine> lines = []
         Set<String> sourcePaths = new LinkedHashSet<>()
 
-        root.children().findAll { Object node -> node instanceof GPathResult && ((GPathResult) node).name() == 'package' }.each { Object packageObject ->
-            def packageNode = packageObject
-            String packagePath = packageNode.attributes().get('name')?.toString() ?: ''
+        root.package.each { packageNode ->
+            String packagePath = packageNode.@name.text()
 
-            packageNode.children().findAll { Object node ->
-                node instanceof GPathResult && ((GPathResult) node).name() == 'sourcefile'
-            }.each { Object sourceObject ->
-                def sourceNode = sourceObject
-                String sourceFile = sourceNode.attributes().get('name')?.toString() ?: ''
+            packageNode.sourcefile.each { sourceNode ->
+                String sourceFile = sourceNode.@name.text()
                 String sourcePath = packagePath ? packagePath + '/' + sourceFile : sourceFile
                 sourcePaths << sourcePath
 
-                sourceNode.children().findAll { Object node ->
-                    node instanceof GPathResult && ((GPathResult) node).name() == 'line'
-                }.each { Object lineObject ->
-                    def lineNode = lineObject
-                    int lineNumber = Integer.parseInt(lineNode.attributes().get('nr').toString())
-                    int missedInstructions = Integer.parseInt(lineNode.attributes().get('mi').toString())
-                    int coveredInstructions = Integer.parseInt(lineNode.attributes().get('ci').toString())
+                sourceNode.line.each { lineNode ->
+                    int lineNumber = Integer.parseInt(lineNode.@nr.text())
+                    int missedInstructions = Integer.parseInt(lineNode.@mi.text())
+                    int coveredInstructions = Integer.parseInt(lineNode.@ci.text())
+
                     lines << new JaCoCoSourceLine(
                         sourcePath,
                         lineNumber,
