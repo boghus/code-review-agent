@@ -36,9 +36,8 @@ jobs:
         shell: bash
         run: |
           set +e
-          gradle reportDiffCoverage --no-daemon \
-            --diffSha="$BASE_SHA" \
-            --report=build/reports/jacoco/test/jacocoTestReport.xml
+          gradle diffCoverage --no-daemon \
+            --args="--diffSha=$BASE_SHA --report=build/reports/jacoco/test/jacocoTestReport.xml"
           exit_code=$?
           set -e
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
