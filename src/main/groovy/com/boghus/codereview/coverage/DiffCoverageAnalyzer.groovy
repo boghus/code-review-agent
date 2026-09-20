@@ -4,6 +4,7 @@ import com.boghus.codereview.review.DiffAnalyzer
 import groovy.transform.CompileStatic
 import groovy.transform.TypeCheckingMode
 import groovy.xml.XmlSlurper
+import javax.xml.parsers.SAXParserFactory
 
 @CompileStatic
 class DiffCoverageAnalyzer {
@@ -117,7 +118,15 @@ class DiffCoverageAnalyzer {
             throw new IllegalArgumentException('JaCoCo XML is empty.')
         }
 
-        def root = new XmlSlurper(false, false).parseText(jacocoXml)
+        SAXParserFactory factory = SAXParserFactory.newInstance()
+        factory.setNamespaceAware(false)
+        factory.setValidating(false)
+        factory.setFeature('http://apache.org/xml/features/disallow-doctype-decl', false)
+        factory.setFeature('http://xml.org/sax/features/external-general-entities', false)
+        factory.setFeature('http://xml.org/sax/features/external-parameter-entities', false)
+        factory.setFeature('http://apache.org/xml/features/nonvalidating/load-external-dtd', false)
+
+        def root = new XmlSlurper(factory.newSAXParser()).parseText(jacocoXml)
         List<JaCoCoSourceLine> lines = []
         Set<String> sourcePaths = new LinkedHashSet<>()
 
