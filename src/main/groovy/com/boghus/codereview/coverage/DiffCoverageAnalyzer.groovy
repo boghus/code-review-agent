@@ -33,19 +33,36 @@ class DiffCoverageAnalyzer {
             )
         }
 
-        List<JaCoCoSourceLine> jacocoLines = parseJaCoCo(jacocoXml)
+        ParsedJaCoCo parsed
+        try {
+            parsed = parseJaCoCo(jacocoXml)
+        } catch (Exception ex) {
+            return new DiffCoverageResult(
+                DiffCoverageStatus.MAPPING_ERROR,
+                uniqueChanges.size(),
+                0, 0, 0, [], [],
+                'JaCoCo XML could not be parsed.'
+            )
+        }
+
         List<ChangedSourceLine> covered = []
         List<ChangedSourceLine> missed = []
         int executableLines = 0
         int mappedLines = 0
 
         uniqueChanges.each { ChangedSourceLine changed ->
-            JaCoCoSourceLine jacocoLine = jacocoLines.find { JaCoCoSourceLine candidate ->
+            JaCoCoSourceLine jacocoLine = parsed.lines.find { JaCoCoSourceLine candidate ->
                 pathMapper.matches(changed.path, candidate.sourcePath) &&
                     changed.lineNumber == candidate.lineNumber
             }
 
             if (jacocoLine == null) {
+                boolean sourceFileExists = parsed.sourcePaths.any { String sourcePath ->
+                    pathMapper.matches(changed.path, sourcePath)
+                }
+                if (sourceFileExists) {
+                    mappedLines++
+                }
                 return
             }
 
@@ -93,19 +110,21 @@ class DiffCoverageAnalyzer {
         )
     }
 
-    private List<JaCoCoSourceLine> parseJaCoCo(String jacocoXml) {
+    private ParsedJaCoCo parseJaCoCo(String jacocoXml) {
         if (!jacocoXml?.trim()) {
-            return []
+            throw new IllegalArgumentException('JaCoCo XML is empty.')
         }
 
         def root = new XmlSlurper(false, false).parseText(jacocoXml)
         List<JaCoCoSourceLine> lines = []
+        Set<String> sourcePaths = new LinkedHashSet<>()
 
         root.package.each { packageNode ->
             String packagePath = packageNode.@name.text()
             packageNode.sourcefile.each { sourceNode ->
                 String sourceFile = sourceNode.@name.text()
                 String sourcePath = packagePath ? packagePath + '/' + sourceFile : sourceFile
+                sourcePaths << sourcePath
 
                 sourceNode.line.each { lineNode ->
                     int lineNumber = Integer.parseInt(lineNode.@nr.text())
@@ -121,6 +140,16 @@ class DiffCoverageAnalyzer {
             }
         }
 
-        lines
+        new ParsedJaCoCo(lines, sourcePaths)
+    }
+
+    private static class ParsedJaCoCo {
+        final List<JaCoCoSourceLine> lines
+        final Set<String> sourcePaths
+
+        ParsedJaCoCo(List<JaCoCoSourceLine> lines, Set<String> sourcePaths) {
+            this.lines = lines
+            this.sourcePaths = sourcePaths
+        }
     }
 }
