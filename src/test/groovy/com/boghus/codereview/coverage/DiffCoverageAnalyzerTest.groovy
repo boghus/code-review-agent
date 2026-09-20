@@ -108,6 +108,67 @@ class DiffCoverageAnalyzerTest {
         assertThat(result.executableLines).isZero()
     }
 
+    @Test
+    void 'reports mapping error when source exists but changed line is absent from JaCoCo'() {
+        DiffCoverageResult result = analyzer.analyze(
+            [new ChangedSourceLine('src/main/groovy/com/foo/Foo.groovy', 20)],
+            jacoco('com/foo', 'Foo.groovy', 10, 0, 1)
+        )
+
+        assertThat(result.status).isEqualTo(DiffCoverageStatus.MAPPING_ERROR)
+        assertThat(result.changedLines).isEqualTo(1)
+        assertThat(result.message).contains('could not be mapped')
+    }
+
+    @Test
+    void 'supports JaCoCo XML with a doctype declaration'() {
+        String xml = '''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE report PUBLIC "-//JACOCO//DTD Report 1.1//EN" "report.dtd">
+<report>
+    <package name="com/foo">
+        <sourcefile name="Foo.groovy">
+            <line nr="10" mi="0" ci="2" mb="0" cb="0"/>
+        </sourcefile>
+    </package>
+</report>'''
+
+        DiffCoverageResult result = analyzer.analyze(
+            [new ChangedSourceLine('src/main/groovy/com/foo/Foo.groovy', 10)],
+            xml
+        )
+
+        assertThat(result.status).isEqualTo(DiffCoverageStatus.COVERAGE_AVAILABLE)
+        assertThat(result.coveredLines).isEqualTo(1)
+        assertThat(result.coveragePercentage()).isEqualByComparingTo('100.00')
+    }
+
+    @Test
+    void 'calculates fractional coverage with two decimal places'() {
+        List<ChangedSourceLine> changes = [
+            new ChangedSourceLine('src/main/groovy/com/foo/Foo.groovy', 10),
+            new ChangedSourceLine('src/main/groovy/com/foo/Foo.groovy', 20),
+            new ChangedSourceLine('src/main/groovy/com/foo/Foo.groovy', 30)
+        ]
+
+        String xml = '''<report>
+            <package name="com/foo">
+                <sourcefile name="Foo.groovy">
+                    <line nr="10" mi="0" ci="1"/>
+                    <line nr="20" mi="1" ci="0"/>
+                    <line nr="30" mi="1" ci="0"/>
+                </sourcefile>
+            </package>
+        </report>'''
+
+        DiffCoverageResult result = analyzer.analyze(changes, xml)
+
+        assertThat(result.status).isEqualTo(DiffCoverageStatus.COVERAGE_AVAILABLE)
+        assertThat(result.executableLines).isEqualTo(3)
+        assertThat(result.coveredLines).isEqualTo(1)
+        assertThat(result.missedLines).isEqualTo(2)
+        assertThat(result.coveragePercentage()).isEqualByComparingTo('33.33')
+    }
+
     private static String jacoco(String packageName, String sourceFile, int line, int missed, int covered) {
         '<report><package name="' + packageName + '"><sourcefile name="' + sourceFile +
             '"><line nr="' + line + '" mi="' + missed + '" ci="' + covered +
