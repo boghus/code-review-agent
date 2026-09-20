@@ -60,12 +60,10 @@ class DiffCoverageAnalyzer {
             }
 
             if (jacocoLine == null) {
-                boolean sourceFileExists = parsed.sourcePaths.any { String sourcePath ->
-                    pathMapper.matches(changed.path, sourcePath)
-                }
-                if (sourceFileExists) {
-                    mappingError = true
-                }
+                // JaCoCo reports executable source lines only. A source file can
+                // legitimately contain changed lines without a corresponding
+                // JaCoCo line entry, so those lines are ignored rather than
+                // treated as a mapping failure.
                 return
             }
 
@@ -82,7 +80,7 @@ class DiffCoverageAnalyzer {
             }
         }
 
-        if (mappingError || mappedLines == 0) {
+        if (mappedLines == 0) {
             return new DiffCoverageResult(
                 DiffCoverageStatus.MAPPING_ERROR,
                 uniqueChanges.size(), 0, 0, 0, [], [],
