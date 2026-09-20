@@ -102,6 +102,10 @@ class DiffAnalyzer {
         return new LinkedHashSet<>(touchedFiles)
     }
 
+    List<ChangedLine> addedLines() {
+        return new ArrayList<>(addedLines)
+    }
+
     /**
      * Test-only accessor for the private tokenizer. Production code must
      * not call this directly; it exists so the tokenization contract can
