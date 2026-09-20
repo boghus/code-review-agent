@@ -9,6 +9,8 @@ class SourcePathMapper {
         String normalized = path.replace('\\', '/')
         if (normalized.startsWith('src/main/groovy/')) {
             normalized = normalized.substring('src/main/groovy/'.length())
+        } else if (normalized.startsWith('src/main/java/')) {
+            normalized = normalized.substring('src/main/java/'.length())
         }
         if (normalized.startsWith('./')) {
             normalized = normalized.substring(2)
