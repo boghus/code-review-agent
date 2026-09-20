@@ -51,6 +51,7 @@ class DiffCoverageAnalyzer {
         List<ChangedSourceLine> missed = []
         int executableLines = 0
         int mappedLines = 0
+        boolean mappingError = false
 
         uniqueChanges.each { ChangedSourceLine changed ->
             JaCoCoSourceLine jacocoLine = parsed.lines.find { JaCoCoSourceLine candidate ->
@@ -59,12 +60,7 @@ class DiffCoverageAnalyzer {
             }
 
             if (jacocoLine == null) {
-                boolean sourceFileExists = parsed.sourcePaths.any { String sourcePath ->
-                    pathMapper.matches(changed.path, sourcePath)
-                }
-                if (sourceFileExists) {
-                    mappedLines++
-                }
+                mappingError = true
                 return
             }
 
@@ -81,7 +77,7 @@ class DiffCoverageAnalyzer {
             }
         }
 
-        if (mappedLines == 0) {
+        if (mappingError || mappedLines == 0) {
             return new DiffCoverageResult(
                 DiffCoverageStatus.MAPPING_ERROR,
                 uniqueChanges.size(), 0, 0, 0, [], [],
