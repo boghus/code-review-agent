@@ -60,7 +60,12 @@ class DiffCoverageAnalyzer {
             }
 
             if (jacocoLine == null) {
-                mappingError = true
+                boolean sourceFileExists = parsed.sourcePaths.any { String sourcePath ->
+                    pathMapper.matches(changed.path, sourcePath)
+                }
+                if (sourceFileExists) {
+                    mappingError = true
+                }
                 return
             }
 
