@@ -12,7 +12,7 @@ class ReviewResult {
     }
 
     int count(String severity) {
-        findings.count { it.severity.equalsIgnoreCase(severity) }
+        (int) findings.count { it.severity.equalsIgnoreCase(severity) }
     }
 
     boolean hasCriticalOrHigh() {
