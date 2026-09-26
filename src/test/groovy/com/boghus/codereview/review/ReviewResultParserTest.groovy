@@ -81,4 +81,43 @@ class ReviewResultParserTest {
         assertThat(result.valid).isFalse()
         assertThat(result.isEmpty()).isTrue()
     }
+
+    @Test
+    void 'does not accept a negated no findings statement'() {
+        ReviewResult result = parser.parse('I cannot confirm that there are no findings because the review failed.')
+
+        assertThat(result.valid).isFalse()
+        assertThat(result.isEmpty()).isTrue()
+    }
+
+    @Test
+    void 'parses a single finding without advancing past the active header'() {
+        ReviewResult result = parser.parse('''### [HIGH] Single finding
+**File:** Service.groovy
+**Problem:** Problem
+**Impact:** Impact
+**Suggested fix:** Fix
+**Evidence:** Evidence
+**Verification:** Verified
+''')
+
+        assertThat(result.valid).isTrue()
+        assertThat(result.findings).hasSize(1)
+        assertThat(result.findings[0].title).isEqualTo('Single finding')
+    }
+
+    @Test
+    void 'preserves multiline field values'() {
+        ReviewResult result = parser.parse('''### [MEDIUM] Multiline finding
+**File:** Service.groovy
+**Problem:** First line
+Second line
+**Impact:** Impact
+**Suggested fix:** Fix
+**Evidence:** Evidence
+**Verification:** Verified
+''')
+
+        assertThat(result.findings[0].problem).isEqualTo('First line\nSecond line')
+    }
 }
