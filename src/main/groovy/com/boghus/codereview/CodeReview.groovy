@@ -2,6 +2,7 @@ package com.boghus.codereview
 
 import com.boghus.codereview.github.ActionInputs
 import com.boghus.codereview.github.TrustedRulesLoader
+import com.boghus.codereview.output.MarkdownReviewFormatter
 import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
 import com.boghus.codereview.provider.AiProviderException
@@ -13,6 +14,8 @@ import com.boghus.codereview.review.DiffAnalyzer
 import com.boghus.codereview.review.DiffBuilder
 import com.boghus.codereview.review.DiffSizeGuard
 import com.boghus.codereview.review.ReviewPromptBuilder
+import com.boghus.codereview.review.ReviewResult
+import com.boghus.codereview.review.ReviewResultParser
 import com.boghus.codereview.review.ReviewTrace
 import groovy.transform.CompileStatic
 
@@ -136,8 +139,10 @@ class CodeReview {
 
         try {
             String text = provider.review(request)
-            writer.writeAiGenerated(inputs.outputPath, text)
-            println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.type().configName}/${inputs.model}."
+            ReviewResult result = new ReviewResultParser().parse(text)
+            String markdown = new MarkdownReviewFormatter().format(result)
+            writer.writeAiGenerated(inputs.outputPath, markdown)
+            println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.type().configName}/${inputs.model} (${result.findings.size()} findings)."
         } catch (AiProviderException ex) {
             writer.writeFailure(inputs.outputPath, ex.userMessage)
             println "Code Review Agent: ${provider.type().configName} failure [${ex.category}]: ${RuntimeErrorSanitizer.sanitize(ex.cause ?: ex)}"
