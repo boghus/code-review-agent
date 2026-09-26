@@ -15,26 +15,37 @@ class ReviewResultParser {
         Pattern.compile('^\\s*(?:-\\s*)?\\*\\*(File|Lines|Problem|Impact|Suggested fix|Evidence|Verification):\\*\\*\\s*(.*)$')
 
     private static final Pattern NO_FINDINGS =
-        Pattern.compile('(?i)(no findings|no issues|no problems|sin hallazgos|no se detectaron problemas|no encontramos problemas)')
+        Pattern.compile('(?i)^(?:no findings|no issues|no problems|sin hallazgos|no se detectaron problemas|no encontramos problemas)[.!]?\\s*$')
 
     ReviewResult parse(String markdown) {
         String source = markdown?.trim() ?: ''
         Matcher headerMatcher = FINDING_HEADER.matcher(source)
         List<Finding> findings = []
 
-        while (headerMatcher.find()) {
-            int end = headerMatcher.end()
-            int next = headerMatcher.find() ? headerMatcher.start() : source.length()
-            String block = source.substring(end, next).trim()
+        String currentSeverity = null
+        String currentTitle = null
+        int currentEnd = -1
 
-            findings << parseFinding(headerMatcher.group(1), headerMatcher.group(2).trim(), block)
+        while (headerMatcher.find()) {
+            if (currentEnd >= 0) {
+                String block = source.substring(currentEnd, headerMatcher.start()).trim()
+                findings << parseFinding(currentSeverity, currentTitle, block)
+            }
+
+            currentSeverity = headerMatcher.group(1)
+            currentTitle = headerMatcher.group(2).trim()
+            currentEnd = headerMatcher.end()
+        }
+
+        if (currentEnd >= 0) {
+            findings << parseFinding(currentSeverity, currentTitle, source.substring(currentEnd).trim())
         }
 
         if (!findings.isEmpty()) {
             return new ReviewResult(findings)
         }
 
-        return new ReviewResult([], NO_FINDINGS.matcher(source).find())
+        return new ReviewResult([], NO_FINDINGS.matcher(source).matches())
     }
 
     private static Finding parseFinding(String severity, String title, String block) {
