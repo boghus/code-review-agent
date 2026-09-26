@@ -22,6 +22,16 @@ class MarkdownReviewFormatterTest {
     }
 
     @Test
+    void 'renders an explicit parsing failure instead of a false clean result'() {
+        String markdown = formatter.format(new ReviewResult([], false))
+
+        assertThat(markdown)
+            .contains('### ⚠️ No se pudo interpretar el resultado')
+            .contains('No podemos afirmar que no existan hallazgos.')
+            .doesNotContain('Sin hallazgos')
+    }
+
+    @Test
     void 'renders recommendations for medium and low findings'() {
         Finding finding = finding('MEDIUM', 'Duplicated validation')
         String markdown = formatter.format(new ReviewResult([finding]))
@@ -37,7 +47,7 @@ class MarkdownReviewFormatterTest {
     }
 
     @Test
-    void 'renders action items when critical or high findings exist'() {
+    void 'renders grouped action items when critical or high findings exist'() {
         Finding critical = finding('CRITICAL', 'Sensitive data in logs')
         Finding high = finding('HIGH', 'Incorrect error handling')
         String markdown = formatter.format(new ReviewResult([critical, high]))
@@ -45,8 +55,9 @@ class MarkdownReviewFormatterTest {
         assertThat(markdown)
             .contains('### ❌ Changes requested')
             .contains('🔴 1 Critical · 🟠 1 High')
-            .contains('- [ ] Resolver el hallazgo CRITICAL')
-            .contains('- [ ] Resolver el hallazgo HIGH')
+            .contains('- [ ] Resolver los 1 hallazgo Critical')
+            .contains('- [ ] Resolver 1 hallazgo High')
+            .contains('- [ ] Revisar las recomendaciones')
             .contains('### ⚠️ Nivel de riesgo')
     }
 
