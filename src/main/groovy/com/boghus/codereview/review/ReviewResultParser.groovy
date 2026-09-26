@@ -11,41 +11,60 @@ class ReviewResultParser {
     private static final Pattern FINDING_HEADER =
         Pattern.compile('(?m)^###\\s+\\[(CRITICAL|HIGH|MEDIUM|LOW)]\\s+(.+?)\\s*$')
 
+    private static final Pattern FIELD =
+        Pattern.compile('^\\s*(?:-\\s*)?\\*\\*(File|Lines|Problem|Impact|Suggested fix|Evidence|Verification):\\*\\*\\s*(.*)$')
+
+    private static final Pattern NO_FINDINGS =
+        Pattern.compile('(?i)(no findings|no issues|no problems|sin hallazgos|no se detectaron problemas|no encontramos problemas)')
+
     ReviewResult parse(String markdown) {
-        String source = markdown ?: ''
-        Matcher matcher = FINDING_HEADER.matcher(source)
+        String source = markdown?.trim() ?: ''
+        Matcher headerMatcher = FINDING_HEADER.matcher(source)
         List<Finding> findings = []
 
-        while (matcher.find()) {
-            int start = matcher.start()
-            int end = matcher.end()
-            int next = matcher.find() ? matcher.start() : source.length()
-            matcher = FINDING_HEADER.matcher(source)
-            matcher.find(start)
-            String severity = matcher.group(1)
-            String title = matcher.group(2).trim()
-
+        while (headerMatcher.find()) {
+            int end = headerMatcher.end()
+            int next = headerMatcher.find() ? headerMatcher.start() : source.length()
             String block = source.substring(end, next).trim()
-            findings << parseFinding(severity, title, block)
+
+            findings << parseFinding(headerMatcher.group(1), headerMatcher.group(2).trim(), block)
         }
 
-        return new ReviewResult(findings)
+        if (!findings.isEmpty()) {
+            return new ReviewResult(findings)
+        }
+
+        return new ReviewResult([], NO_FINDINGS.matcher(source).find())
     }
 
     private static Finding parseFinding(String severity, String title, String block) {
-        String file = value(block, 'File') ?: 'Unknown file'
-        String lines = value(block, 'Lines')
-        String problem = value(block, 'Problem') ?: 'No problem description provided.'
-        String impact = value(block, 'Impact') ?: 'Impact not specified.'
-        String suggestedFix = value(block, 'Suggested fix') ?: 'No suggested fix provided.'
-        String evidence = value(block, 'Evidence') ?: 'Evidence was not provided.'
-        boolean verified = !'Unverified'.equalsIgnoreCase(value(block, 'Verification'))
+        Map<String, String> fields = fields(block)
+
+        String file = fields['File'] ?: 'Unknown file'
+        String lines = fields['Lines']
+        String problem = fields['Problem'] ?: 'No problem description provided.'
+        String impact = fields['Impact'] ?: 'Impact not specified.'
+        String suggestedFix = fields['Suggested fix'] ?: 'No suggested fix provided.'
+        String evidence = fields['Evidence'] ?: 'Evidence was not provided.'
+        boolean verified = 'Verified'.equalsIgnoreCase(fields['Verification']?.trim())
 
         return new Finding(severity, title, file, lines, problem, impact, suggestedFix, evidence, verified)
     }
 
-    private static String value(String block, String label) {
-        Matcher matcher = Pattern.compile("(?ms)^\\s*(?:-\\s*)?\\*\\*${Pattern.quote(label)}:\\*\\*\\s*(.+?)(?=\\n\\s*(?:-\\s*)?\\*\\*[^*]+:\\*\\*|\\z)").matcher(block)
-        return matcher.find() ? matcher.group(1).trim() : null
+    private static Map<String, String> fields(String block) {
+        Map<String, String> values = [:]
+        String currentField = null
+
+        block.split('\\r?\\n').each { String line ->
+            Matcher matcher = FIELD.matcher(line)
+            if (matcher.matches()) {
+                currentField = matcher.group(1)
+                values[currentField] = matcher.group(2).trim()
+            } else if (currentField && line.trim()) {
+                values[currentField] = values[currentField] + '\\n' + line.trim()
+            }
+        }
+
+        values
     }
 }
