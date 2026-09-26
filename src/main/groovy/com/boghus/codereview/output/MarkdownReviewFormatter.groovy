@@ -49,7 +49,7 @@ Tu PR está listo para revisión.
     private static String recommendations(ReviewResult result) {
         String findings = result.findings.collect { Finding finding ->
             formatFinding(finding)
-        }.join('\n\n---\n\n')
+        }.join('\\n\\n---\\n\\n')
 
         return """## 📊 Resultado del análisis
 
@@ -70,11 +70,27 @@ ${totals(result)}
     private static String actionRequired(ReviewResult result) {
         String findings = result.findings.collect { Finding finding ->
             formatFinding(finding)
-        }.join('\n\n---\n\n')
+        }.join('\\n\\n---\\n\\n')
 
-        String actionItems = """- [ ] Resolver los ${result.count('CRITICAL')} hallazgo${result.count('CRITICAL') == 1 ? '' : 's'} Critical
-- [ ] Resolver ${result.count('HIGH')} hallazgo${result.count('HIGH') == 1 ? '' : 's'} High
-- [ ] Revisar las recomendaciones""".stripIndent()
+        List<String> actionItems = []
+        int criticalCount = result.count('CRITICAL')
+        int highCount = result.count('HIGH')
+
+        if (criticalCount > 0) {
+            actionItems << "- [ ] Resolver los ${criticalCount} hallazgo${criticalCount == 1 ? '' : 's'} Critical"
+        }
+        if (highCount > 0) {
+            actionItems << "- [ ] Resolver ${highCount} hallazgo${highCount == 1 ? '' : 's'} High"
+        }
+
+        result.findings.findAll { Finding finding ->
+            finding.severity.equalsIgnoreCase('CRITICAL') || finding.severity.equalsIgnoreCase('HIGH')
+        }.each { Finding finding ->
+            String action = finding.suggestedFix?.trim() ?: finding.title
+            actionItems << "- [ ] ${action}"
+        }
+
+        actionItems << '- [ ] Revisar las recomendaciones'
 
         return """## 🤖 Code Review
 
@@ -94,7 +110,7 @@ ${findings}
 
 ### ✅ Action items
 
-${actionItems}
+${actionItems.join('\\n')}
 
 ${totals(result)}
 """.stripIndent()
