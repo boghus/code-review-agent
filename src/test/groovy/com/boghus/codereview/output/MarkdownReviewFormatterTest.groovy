@@ -57,7 +57,8 @@ class MarkdownReviewFormatterTest {
             .contains('🔴 1 Critical · 🟠 1 High')
             .contains('- [ ] Resolver los 1 hallazgo Critical')
             .contains('- [ ] Resolver 1 hallazgo High')
-            .contains('- [ ] Fix it')
+            .contains('- [ ] Sensitive data in logs: Fix it')
+            .contains('- [ ] Incorrect error handling: Fix it')
             .contains('### ⚠️ Nivel de riesgo')
     }
 
