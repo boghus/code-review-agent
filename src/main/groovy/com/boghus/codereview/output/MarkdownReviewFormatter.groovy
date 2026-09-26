@@ -8,17 +8,29 @@ import groovy.transform.CompileStatic
 class MarkdownReviewFormatter {
 
     String format(ReviewResult result) {
-        ReviewResult safeResult = result ?: new ReviewResult()
+        ReviewResult safeResult = result ?: new ReviewResult([], false)
 
+        if (!safeResult.valid) {
+            return invalidResult()
+        }
         if (safeResult.isEmpty()) {
             return cleanResult()
         }
-
         if (safeResult.hasCriticalOrHigh()) {
             return actionRequired(safeResult)
         }
-
         return recommendations(safeResult)
+    }
+
+    private static String invalidResult() {
+        '''## 🤖 Code Review
+
+### ⚠️ No se pudo interpretar el resultado
+
+La respuesta del reviewer no tuvo el formato esperado. No podemos afirmar que no existan hallazgos.
+
+Revisa el log del workflow y vuelve a ejecutar el review.
+'''.stripIndent()
     }
 
     private static String cleanResult() {
@@ -51,12 +63,7 @@ Encontramos ${result.findings.size()} punto${result.findings.size() == 1 ? '' : 
 
 ${findings}
 
-### 📊 Total de hallazgos
-
-🔴 CRITICAL: ${result.count('CRITICAL')}
-🟠 HIGH: ${result.count('HIGH')}
-🟡 MEDIUM: ${result.count('MEDIUM')}
-🔵 LOW: ${result.count('LOW')}
+${totals(result)}
 """.stripIndent()
     }
 
@@ -65,11 +72,9 @@ ${findings}
             formatFinding(finding)
         }.join('\n\n---\n\n')
 
-        String actionItems = result.findings.findAll { Finding finding ->
-            finding.severity.equalsIgnoreCase('CRITICAL') || finding.severity.equalsIgnoreCase('HIGH')
-        }.collect { Finding finding ->
-            "- [ ] Resolver el hallazgo ${finding.severity}"
-        }.join('\n')
+        String actionItems = """- [ ] Resolver los ${result.count('CRITICAL')} hallazgo${result.count('CRITICAL') == 1 ? '' : 's'} Critical
+- [ ] Resolver ${result.count('HIGH')} hallazgo${result.count('HIGH') == 1 ? '' : 's'} High
+- [ ] Revisar las recomendaciones""".stripIndent()
 
         return """## 🤖 Code Review
 
@@ -91,13 +96,17 @@ ${findings}
 
 ${actionItems}
 
-### 📊 Total de hallazgos
+${totals(result)}
+""".stripIndent()
+    }
+
+    private static String totals(ReviewResult result) {
+        """### 📊 Total de hallazgos
 
 🔴 CRITICAL: ${result.count('CRITICAL')}
 🟠 HIGH: ${result.count('HIGH')}
 🟡 MEDIUM: ${result.count('MEDIUM')}
-🔵 LOW: ${result.count('LOW')}
-""".stripIndent()
+🔵 LOW: ${result.count('LOW')}""".stripIndent()
     }
 
     private static String formatFinding(Finding finding) {
