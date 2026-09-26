@@ -86,7 +86,10 @@ ${totals(result)}
         result.findings.findAll { Finding finding ->
             finding.severity.equalsIgnoreCase('CRITICAL') || finding.severity.equalsIgnoreCase('HIGH')
         }.each { Finding finding ->
-            String action = finding.suggestedFix?.trim() ?: finding.title
+            String action = finding.title
+            if (finding.suggestedFix?.trim()) {
+                action = "${finding.title}: ${finding.suggestedFix.trim()}"
+            }
             actionItems << "- [ ] ${action}"
         }
 
