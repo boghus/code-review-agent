@@ -25,6 +25,7 @@ class ReviewResultParserTest {
 
         ReviewResult result = parser.parse(markdown)
 
+        assertThat(result.valid).isTrue()
         assertThat(result.findings).hasSize(1)
         assertThat(result.findings[0].severity).isEqualTo('HIGH')
         assertThat(result.findings[0].title).isEqualTo('Incorrect error handling')
@@ -49,12 +50,11 @@ class ReviewResultParserTest {
 
 ### [LOW] Naming improvement
 - **File:** User.groovy
-- **Lines:** 20
 **Problem:** Name is unclear.
 **Impact:** Readability suffers.
 **Suggested fix:** Rename the variable.
 **Evidence:** The variable name is generic.
-**Verification:** Unverified
+**Verification:** Not Verified
 '''.stripIndent()
 
         ReviewResult result = parser.parse(markdown)
@@ -62,13 +62,23 @@ class ReviewResultParserTest {
         assertThat(result.findings).hasSize(2)
         assertThat(result.count('CRITICAL')).isEqualTo(1)
         assertThat(result.count('LOW')).isEqualTo(1)
+        assertThat(result.findings[1].lines).isNull()
         assertThat(result.findings[1].verified).isFalse()
     }
 
     @Test
-    void 'ignores markdown without finding headings'() {
+    void 'accepts an explicit no findings response'() {
         ReviewResult result = parser.parse('No findings were detected.')
 
+        assertThat(result.valid).isTrue()
+        assertThat(result.isEmpty()).isTrue()
+    }
+
+    @Test
+    void 'does not turn an unstructured response into a clean result'() {
+        ReviewResult result = parser.parse('The reviewer returned an unexpected response.')
+
+        assertThat(result.valid).isFalse()
         assertThat(result.isEmpty()).isTrue()
     }
 }
