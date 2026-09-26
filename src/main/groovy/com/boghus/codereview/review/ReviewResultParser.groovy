@@ -45,7 +45,7 @@ class ReviewResultParser {
     }
 
     private static String value(String block, String label) {
-        Matcher matcher = Pattern.compile("(?ms)^\\s*\\*\\*${Pattern.quote(label)}:\\*\\*\\s*(.+?)(?=\\n\\s*\\*\\*[^*]+:\\*\\*|\\z)").matcher(block)
+        Matcher matcher = Pattern.compile("(?ms)^\\s*(?:-\\s*)?\\*\\*${Pattern.quote(label)}:\\*\\*\\s*(.+?)(?=\\n\\s*(?:-\\s*)?\\*\\*[^*]+:\\*\\*|\\z)").matcher(block)
         return matcher.find() ? matcher.group(1).trim() : null
     }
 }
