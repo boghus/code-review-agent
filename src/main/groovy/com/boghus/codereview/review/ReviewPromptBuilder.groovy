@@ -23,7 +23,8 @@ Security instructions:
         String developerInstructions = """Review requirements:
 - Follow the repository rules below as trusted review configuration.
 - Begin with: ## 🤖 Code Review Agent by boghus
-- Include a short summary with severity counts and an APPROVE / CHANGES_REQUESTED verdict.
+- Return only the review findings in the structured markdown format below. The application will adapt the final presentation to the number and severity of findings.
+- Do not add an APPROVE / CHANGES_REQUESTED verdict; the application owns that presentation.
 - For each finding, follow the structured Finding contract below and render all fields in the existing markdown format.
 ${Finding.PROMPT_CONTRACT}
 - Render each finding as:
@@ -36,8 +37,8 @@ ${Finding.PROMPT_CONTRACT}
     **Suggested fix:** ...
     **Evidence:** ...
     **Verification:** Verified | Unverified
-- End with a totals block.
-- If no findings, say so explicitly. Never invent issues.
+- Do not add a totals block; the application calculates totals from the parsed findings.
+- If there are no findings, return a short explicit statement that no findings were detected. Never invent issues.
 - Respond in ${language.promptName}.""".stripIndent()
 
         String prompt = ReviewContentFormatter.format(
