@@ -57,8 +57,19 @@ class MarkdownReviewFormatterTest {
             .contains('🔴 1 Critical · 🟠 1 High')
             .contains('- [ ] Resolver los 1 hallazgo Critical')
             .contains('- [ ] Resolver 1 hallazgo High')
-            .contains('- [ ] Revisar las recomendaciones')
+            .contains('- [ ] Fix it')
             .contains('### ⚠️ Nivel de riesgo')
+    }
+
+    @Test
+    void 'omits zero severity action items'() {
+        Finding critical = finding('CRITICAL', 'Only critical finding')
+        String markdown = formatter.format(new ReviewResult([critical]))
+
+        assertThat(markdown)
+            .contains('- [ ] Resolver los 1 hallazgo Critical')
+            .doesNotContain('Resolver 0 hallazgo')
+            .doesNotContain('Resolver los 0 hallazgos High')
     }
 
     @Test
