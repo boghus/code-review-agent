@@ -4,6 +4,7 @@ import groovy.json.JsonSlurper
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
+import static org.assertj.core.api.Assertions.assertThatThrownBy
 
 class ReviewResponseJsonSerializerTest {
 
@@ -73,21 +74,21 @@ class ReviewResponseJsonSerializerTest {
 
     @Test
     void 'rejects a null response'() {
-        assertThat({ ReviewResponseJsonSerializer.toJson(null) })
+        assertThatThrownBy({ ReviewResponseJsonSerializer.toJson(null) })
             .isInstanceOf(IllegalArgumentException)
             .hasMessage('Review response must not be null.')
     }
 
     @Test
     void 'rejects a response without a summary'() {
-        assertThat({ new ReviewResponse(null, []) })
+        assertThatThrownBy({ new ReviewResponse(null, []) })
             .isInstanceOf(IllegalArgumentException)
             .hasMessage("Review response field 'summary' must not be null.")
     }
 
     @Test
     void 'rejects a finding without a severity'() {
-        assertThat({
+        assertThatThrownBy({
             new ReviewFinding(null, 'Title', 'Foo.groovy', 10, 'Description', null, null)
         })
             .isInstanceOf(IllegalArgumentException)
