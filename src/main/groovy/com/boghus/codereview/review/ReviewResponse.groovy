@@ -2,6 +2,8 @@ package com.boghus.codereview.review
 
 import groovy.transform.CompileStatic
 
+import java.util.Collections
+
 @CompileStatic
 class ReviewResponse {
     final String summary
@@ -9,7 +11,7 @@ class ReviewResponse {
 
     ReviewResponse(String summary, List<ReviewFinding> findings) {
         this.summary = requireValue(summary, 'summary')
-        this.findings = findings == null ? [] : List.copyOf(findings)
+        this.findings = findings == null ? Collections.emptyList() : List.copyOf(findings)
     }
 
     private static <T> T requireValue(T value, String fieldName) {
