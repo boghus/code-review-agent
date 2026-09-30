@@ -73,6 +73,26 @@ class ReviewResponseJsonSerializerTest {
     }
 
     @Test
+    void 'keeps findings immutable when initialized with null'() {
+        ReviewResponse response = new ReviewResponse('No se encontraron hallazgos.', null)
+
+        assertThatThrownBy({
+            response.findings.add(
+                new ReviewFinding(
+                    ReviewSeverity.LOW,
+                    'Nuevo hallazgo',
+                    'Foo.groovy',
+                    10,
+                    'Descripción',
+                    null,
+                    null
+                )
+            )
+        })
+            .isInstanceOf(UnsupportedOperationException)
+    }
+
+    @Test
     void 'rejects a null response'() {
         assertThatThrownBy({ ReviewResponseJsonSerializer.toJson(null) })
             .isInstanceOf(IllegalArgumentException)
