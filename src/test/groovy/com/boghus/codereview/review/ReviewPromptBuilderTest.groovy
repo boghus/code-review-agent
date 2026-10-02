@@ -78,16 +78,21 @@ class ReviewPromptBuilderTest {
     }
 
     @Test
-    void 'includes finding evidence and verification rules'() {
+    void 'includes the model-derived json schema in developer instructions'() {
         def request = builder.buildRequest('', '')
 
         assertThat(request.developerInstructions)
-            .contains('Finding contract')
-            .contains('evidence:')
-            .contains('verified: true only when')
-            .contains('set verified to false')
-            .contains('Do not present that external claim as a fact')
-            .contains('Never invent evidence or sources')
+            .contains('Return the complete review using only the JSON Schema below.')
+            .contains('The response must conform to the JSON Schema.')
+            .contains(ReviewResponseSchemaGenerator.generate())
+    }
+
+    @Test
+    void 'requires an empty findings array when no findings exist'() {
+        def request = builder.buildRequest('', '')
+
+        assertThat(request.developerInstructions)
+            .contains('If there are no findings, return an empty findings array.')
     }
 
     @Test

@@ -22,23 +22,15 @@ Security instructions:
 
         String developerInstructions = """Review requirements:
 - Follow the repository rules below as trusted review configuration.
-- Begin with: ## 🤖 Code Review Agent by boghus
-- Include a short summary with severity counts and an APPROVE / CHANGES_REQUESTED verdict.
-- For each finding, follow the structured Finding contract below and render all fields in the existing markdown format.
-${Finding.PROMPT_CONTRACT}
-- Render each finding as:
-    ### [CRITICAL|HIGH|MEDIUM|LOW] Short title
-    - **File:** path
-    - **Lines:** number or range when known
+- Return the complete review using only the JSON Schema below.
+- Do not return Markdown, code fences, explanations, comments, or any text outside the JSON object.
+- The response must conform to the JSON Schema.
+- If there are no findings, return an empty findings array.
+- Never invent issues or evidence.
+- Respond in ${language.promptName}.
 
-    **Problem:** ...
-    **Impact:** ...
-    **Suggested fix:** ...
-    **Evidence:** ...
-    **Verification:** Verified | Unverified
-- End with a totals block.
-- If no findings, say so explicitly. Never invent issues.
-- Respond in ${language.promptName}.""".stripIndent()
+JSON Schema:
+${ReviewResponseSchemaGenerator.generate()}""".stripIndent()
 
         String prompt = ReviewContentFormatter.format(
             ReviewContentType.TRUSTED_REPOSITORY_RULES,
