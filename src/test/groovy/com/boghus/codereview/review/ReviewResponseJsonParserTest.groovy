@@ -1,6 +1,8 @@
 package com.boghus.codereview.review
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 import static org.assertj.core.api.Assertions.assertThat
 import static org.assertj.core.api.Assertions.assertThatThrownBy
@@ -50,6 +52,26 @@ class ReviewResponseJsonParserTest {
         )
 
         assertThat(response.findings).isEmpty()
+    }
+
+    @Test
+    void 'accepts only JSON whitespace after a response'() {
+        ReviewResponse response = ReviewResponseJsonParser.parse(
+            '{"summary":"Resumen","findings":[]} \t\r\n'
+        )
+
+        assertThat(response.summary).isEqualTo('Resumen')
+        assertThat(response.findings).isEmpty()
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ['trailing text', ' trailing text', '{}', ' {}', ' \t\r\n{}', '\u0000', '\u000b', '\u00a0'])
+    void 'rejects any content after a response'(String trailingContent) {
+        assertThatThrownBy({
+            ReviewResponseJsonParser.parse('{"summary":"Resumen","findings":[]}' + trailingContent)
+        })
+            .isInstanceOf(IllegalArgumentException)
+            .hasMessage('Review response JSON must not contain trailing content.')
     }
 
     @Test

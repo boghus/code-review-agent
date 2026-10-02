@@ -1,6 +1,6 @@
 package com.boghus.codereview.review
 
-import groovy.json.JsonSlurper
+import org.apache.groovy.json.internal.JsonParserCharArray
 import groovy.transform.CompileStatic
 
 @CompileStatic
@@ -11,7 +11,7 @@ class ReviewResponseJsonParser {
             throw new IllegalArgumentException('Review response JSON must not be empty.')
         }
 
-        Object parsed = new JsonSlurper().parseText(json)
+        Object parsed = new CompleteJsonParser().parse(json.toCharArray())
 
         if (!(parsed instanceof Map)) {
             throw new IllegalArgumentException('Review response JSON must be an object.')
@@ -23,6 +23,23 @@ class ReviewResponseJsonParser {
         List<ReviewFinding> findings = parseFindings(payload)
 
         new ReviewResponse(summary, findings)
+    }
+
+    private static class CompleteJsonParser extends JsonParserCharArray {
+
+        @Override
+        Object parse(char[] chars) {
+            Object parsed = super.parse(chars)
+            String trailingContent = new String(chars, __index, chars.length - __index)
+
+            if (!trailingContent.matches('[ \\t\\r\\n]*')) {
+                throw new IllegalArgumentException(
+                    'Review response JSON must not contain trailing content.'
+                )
+            }
+
+            parsed
+        }
     }
 
     private static List<ReviewFinding> parseFindings(Map<String, Object> payload) {
