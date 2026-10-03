@@ -24,10 +24,6 @@ dependencies {
     testImplementation 'org.assertj:assertj-core:3.27.3'
 }
 
-groovy {
-    groovyVersion = '4.0.33'
-}
-
 application {
     mainClass = 'com.boghus.codereview.CodeReview'
 }
