@@ -251,13 +251,47 @@ For organizations that cannot send source code to external AI services, local/se
 
 > **Experimental:** this feature has not yet been fully validated in real-world team workflows.
 
-Create:
+Code Review Agent lets each repository define review rules and tell the Action where to find them with the `rules-path` input.
+
+### 📚 Where to define the rules
+
+By default, the Action looks for:
 
 ```text
 .github/code_review_rules.md
 ```
 
-Example:
+The path is **repository-relative**. You can keep the default or point `rules-path` to another file in your repository.
+
+For example:
+
+```yaml
+name: AI Code Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: boghus/code-review-agent@v1
+        with:
+          api-key: ${{ secrets.MY_AI_KEY }}
+          rules-path: .github/review/code_review_rules.md
+```
+
+If `rules-path` is omitted, the default `.github/code_review_rules.md` is used.
+
+### 📝 What goes in the rules file?
+
+The rules file contains the conventions and checks you want the AI reviewer to apply to the Pull Request. Keep them concrete and actionable.
+
+A minimal example:
 
 ```markdown
 # Code Review Rules
@@ -270,9 +304,14 @@ Example:
 - Prefer small, focused methods.
 ```
 
-Rules are loaded from the **PR base ref**.
+These rules become part of the review context. They guide what the reviewer looks for and help it adapt its analysis to the conventions that matter to your team.
 
-That matters: contributors cannot simply modify the review rules inside their PR and change the contract used to review their own code.
+### 🔐 Security: rules come from the base ref
+
+The rules used for a Pull Request are always read from the **PR base ref**, not from the version of the rules file modified inside the Pull Request.
+
+This is intentional: a contributor cannot change the trusted review rules in the same PR and use those changes to alter the rules applied to that review.
+
 
 ---
 
