@@ -6,7 +6,6 @@ import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
 import com.boghus.codereview.provider.AiProviderException
 import com.boghus.codereview.provider.AiProviderFactory
-import com.boghus.codereview.provider.AiProviderType
 import com.boghus.codereview.provider.GeminiAdapter
 import com.boghus.codereview.provider.ReviewRequest
 import com.boghus.codereview.provider.RuntimeErrorSanitizer
