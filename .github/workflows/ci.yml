@@ -11,7 +11,7 @@ permissions:
   issues: write
 
 env:
-  SELF_REVIEW_GEMINI_MODEL: gemini-3.6-flash
+  SELF_REVIEW_GEMINI_MODEL: gemini-3.8-flash
 
 jobs:
   context:

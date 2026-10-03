@@ -11,9 +11,9 @@ inputs:
     description: 'API key for the AI provider. Map any repository secret to this input.'
     required: true
   model:
-    description: 'Model identifier passed to the AI provider (e.g. gemini-3.6-flash).'
+    description: 'Model identifier passed to the AI provider (e.g. gemini-3.8-flash).'
     required: false
-    default: 'gemini-3.6-flash'
+    default: 'gemini-3.8-flash'
   provider:
     description: 'AI provider implementation. Currently only "gemini" is supported.'
     required: false
@@ -23,9 +23,8 @@ inputs:
     required: false
     default: 'en'
   rules-path:
-    description: "Repository-relative Git tree path to trusted review rules. Absolute paths, leading '-', and '.', '..' path components are rejected. Rules are always read from the PR base ref."
+    description: "Optional repository-relative path to trusted review rules. If omitted or empty, review continues without custom rules. If configured, the file must exist and be valid. Rules are always read from the PR base ref."
     required: false
-    default: '.github/code_review_rules.md'
   diff-path:
     description: 'Path where the PR diff is written before review.'
     required: false

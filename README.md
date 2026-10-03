@@ -53,7 +53,7 @@ jobs:
       - uses: boghus/code-review-agent@v1
         with:
           api-key: ${{ secrets.MY_AI_KEY }}
-          model: gemini-3.6-flash
+          model: gemini-3.8-flash
 ```
 
 ### Add your Gemini API key
@@ -75,6 +75,73 @@ Real, animated walkthrough of the review pipeline — from PR event to published
 📦 [Source PR · boghus/code-review-agent#76](https://github.com/boghus/code-review-agent/pull/76)
 
 The demo is generated from the actual output of `boghus/code-review-agent` running against intentional QA fixtures (real workflow, real Gemini review, real PR comment). It corresponds to the behavior of `main` at the time of the v1.0.0-rc.2 release.
+
+## 💬 What you receive in your Pull Request
+
+Code Review Agent publishes one review comment directly in the Pull Request. The comment is updated on subsequent runs instead of creating a new comment for every push.
+
+### Review with findings
+
+When the reviewer identifies problems worth reviewing, the report contains a summary followed by concrete findings:
+
+```text
+## 🤖 Code Review Agent
+
+**Summary**
+The change introduces a database query inside a loop that can cause unnecessary
+round trips when processing multiple employees.
+
+Found **1 finding** that should be reviewed.
+
+🟠 **HIGH — Query executed inside a loop**
+`src/main/groovy/com/example/EmployeeService.groovy:42`
+
+**What we found**
+The repository lookup is executed once for every employee instead of being
+loaded in a single query before the loop.
+
+**Impact**
+The number of database queries grows with the number of employees processed,
+which can increase response time and database load.
+
+**What to do**
+Load the required employees in one query before entering the loop and reuse
+the result during processing.
+
+**Severity summary:** 🔴 0 CRITICAL · 🟠 1 HIGH · 🟡 0 MEDIUM · 🔵 0 LOW
+```
+
+Each finding can include:
+
+- **Severity** — `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW`.
+- **Title** — a short description of the finding.
+- **File and line** — when the reviewer can associate the finding with a location in the change.
+- **What we found** — the concrete problem identified in the code.
+- **Impact** — why the finding may matter.
+- **What to do** — a suggested action when the reviewer can provide one.
+
+Severity is a signal for prioritizing review; it is **not a guarantee of impact or correctness**.
+
+### Review without findings
+
+When the reviewer does not report findings under the configured review contract, the PR receives:
+
+```text
+## 🤖 Code Review Agent
+
+**No findings.**
+No issues requiring changes were found in this PR.
+
+**Summary**
+The change is focused and no relevant issues were identified.
+
+**Severity summary:** 🔴 0 CRITICAL · 🟠 0 HIGH · 🟡 0 MEDIUM · 🔵 0 LOW
+```
+
+A review with no findings means the reviewer did not report findings for that change. It is **not a guarantee that the code has no bugs**.
+
+The exact wording of the generated summary and findings depends on the PR, repository review rules, configured language, and AI model response. The structure above reflects the output format currently published by the Action.
+
 
 ---
 
@@ -184,13 +251,58 @@ For organizations that cannot send source code to external AI services, local/se
 
 > **Experimental:** this feature has not yet been fully validated in real-world team workflows.
 
-Create:
+Code Review Agent lets each repository define review rules and tell the Action where to find them with the `rules-path` input.
 
-```text
-.github/code_review_rules.md
+### 📚 Where to define the rules
+
+Rules are optional. To use repository-specific review rules, configure `rules-path` with a repository-relative path to the file.
+
+For example:
+
+```yaml
+name: AI Code Review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: boghus/code-review-agent@v1
+        with:
+          api-key: ${{ secrets.MY_AI_KEY }}
+          rules-path: .github/review/code_review_rules.md
 ```
 
-Example:
+To disable repository-specific rules explicitly:
+
+```yaml
+- uses: boghus/code-review-agent@v1
+  with:
+    api-key: ${{ secrets.MY_AI_KEY }}
+    rules-path: ''
+```
+
+If `rules-path` is omitted or empty, the review continues without repository-specific rules. If you configure a path, the file must exist in the PR base; a missing or invalid file raises the existing trusted-rules validation error.
+
+You can also omit the input entirely:
+
+```yaml
+- uses: boghus/code-review-agent@v1
+  with:
+    api-key: ${{ secrets.MY_AI_KEY }}
+```
+
+### 📝 What goes in the rules file?
+
+The rules file contains the conventions and checks you want the AI reviewer to apply to the Pull Request. Keep them concrete and actionable.
+
+A minimal example:
 
 ```markdown
 # Code Review Rules
@@ -203,9 +315,14 @@ Example:
 - Prefer small, focused methods.
 ```
 
-Rules are loaded from the **PR base ref**.
+These rules become part of the review context. They guide what the reviewer looks for and help it adapt its analysis to the conventions that matter to your team.
 
-That matters: contributors cannot simply modify the review rules inside their PR and change the contract used to review their own code.
+### 🔐 Security: rules come from the base ref
+
+The rules used for a Pull Request are always read from the **PR base ref**, not from the version of the rules file modified inside the Pull Request.
+
+This is intentional: a contributor cannot change the trusted review rules in the same PR and use those changes to alter the rules applied to that review.
+
 
 ---
 
@@ -268,10 +385,10 @@ This makes the review engine independent from the underlying model provider.
 | Input | Required | Default | Description |
 |---|---:|---|---|
 | `api-key` | ✅ | — | AI provider API key |
-| `model` | | `gemini-3.6-flash` | Model identifier |
+| `model` | | `gemini-3.8-flash` | Model identifier |
 | `provider` | | `gemini` | AI provider |
 | `language` | | `en` | Review language |
-| `rules-path` | | `.github/code_review_rules.md` | Review rules |
+| `rules-path` | | — | Optional repository-relative rules file. Omit it or set `''` to disable custom rules. A configured path that is missing or invalid is an error. |
 | `diff-path` | | `cra-pr.diff` | Diff file |
 | `output-path` | | `cra-review.md` | Review output |
 | `github-token` | | `${{ github.token }}` | GitHub API token |
@@ -314,7 +431,7 @@ Verify that `MY_AI_KEY` exists under **Repository → Settings → Secrets and v
 
 ```yaml
 provider: gemini
-model: gemini-3.6-flash
+model: gemini-3.8-flash
 ```
 
 The currently shipped provider is **Gemini**. OpenAI, Claude, Ollama, and DeepSeek are architecture targets, not currently shipped integrations.
@@ -366,7 +483,7 @@ Also check the steps that find and create/update the review comment.
 
 **How to recognize it:** the report says that the trusted review rules are invalid or could not be loaded from the Pull Request base revision.
 
-**Likely cause:** the configured path is not a valid repository-relative file, the file does not exist in the PR base, or the path contains unsafe components.
+**Likely cause:** a configured `rules-path` is not a valid repository-relative file, the file does not exist in the PR base, or the path contains unsafe components.
 
 **What to check:**
 
@@ -378,7 +495,7 @@ The path must be relative to the repository, point to a regular file, not start 
 
 Rules are loaded from the **PR base ref**, not from the modified version inside the Pull Request.
 
-**Recommended action:** make sure the rules file exists in the target branch and that `rules-path` points to it. Changes to that file inside the same PR are intentionally not used to review that PR.
+**Recommended action:** if you want repository-specific rules, make sure the file exists in the target branch and that `rules-path` points to it. If you do not need custom rules, omit the `rules-path` input or set `rules-path: ''`. Changes to rules inside the same PR are intentionally not used to review that PR.
 
 ---
 
