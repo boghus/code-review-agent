@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - main
+    paths:
+      - '.github/workflows/performance-29.yml'
+      - 'action.yml'
+      - 'src/main/**'
 
 permissions:
   contents: read
