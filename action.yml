@@ -98,9 +98,6 @@ runs:
             echo "$WORKSPACE/$raw"
           fi
         }
-        # Keep rules-path as data passed through the environment; it is never
-        # interpolated into this Bash source. Full validation is performed by
-        # the Groovy trusted-rules loader before any Git access.
         if [[ "$RULES_RAW" == /* ]]; then
           echo "::error::rules-path must be a path inside the repository, not an absolute filesystem path. Got: $RULES_RAW" >&2
           exit 1
@@ -114,8 +111,6 @@ runs:
     - name: Run Code Review Agent
       shell: bash
       env:
-        # Explicitly remove the GitHub token from the AI process boundary.
-        # GitHub API operations belong exclusively to the comment steps below.
         GITHUB_TOKEN: ''
         CRA_API_KEY: ${{ inputs.api-key }}
         CRA_PERFORMANCE_ONLY: ${{ inputs.performance-only }}
@@ -148,7 +143,7 @@ runs:
         echo "::endgroup::"
 
         if [[ "$CRA_PERFORMANCE_ONLY" == "true" ]]; then
-          echo "::group::Gradle startup diagnostics"
+          echo "::group::Gradle build/runtime diagnostics"
 
           measure_gradle() {
             local label="$1"
@@ -173,9 +168,20 @@ runs:
           measure_gradle "tasks" tasks
           tasks_status=$?
 
+          measure_gradle "classes" classes
+          classes_status=$?
+
+          measure_gradle "jar" jar
+          jar_status=$?
+
+          if [[ "$jar_status" -eq 0 ]]; then
+            echo "Generated JARs:"
+            find "$GITHUB_ACTION_PATH/build/libs" -maxdepth 1 -type f -name '*.jar' -printf '%f\n' | sort
+          fi
+
           echo "::endgroup::"
 
-          if [[ "$help_status" -ne 0 || "$tasks_status" -ne 0 ]]; then
+          if [[ "$help_status" -ne 0 || "$tasks_status" -ne 0 || "$classes_status" -ne 0 || "$jar_status" -ne 0 ]]; then
             echo "::error::Gradle diagnostic command failed."
             exit 1
           fi
@@ -203,9 +209,6 @@ runs:
         token: ${{ inputs.github-token }}
         issue-number: ${{ github.event.pull_request.number }}
         comment-author: github-actions[bot]
-        # Accept both the new marker and the legacy v1 marker so existing
-        # comments from earlier releases are picked up and replaced in
-        # place instead of producing a duplicate.
         body-regex: '<!-- code-review-agent-by-boghus -->|<!-- code-review-agent -->'
 
     - name: Create or update review comment
