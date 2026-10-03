@@ -25,3 +25,11 @@ jobs:
         uses: ./
         with:
           performance-only: 'true'
+
+      - name: Upload Gradle performance profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-performance-profile
+          path: build/reports/profile/*.html
+          if-no-files-found: warn
