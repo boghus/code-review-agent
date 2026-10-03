@@ -1,0 +1,20 @@
+name: QA performance measurement
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  performance:
+    if: github.event.pull_request.head.ref == 'qa/performance-29'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Code Review Agent in performance-only mode
+        uses: ./
+        with:
+          performance-only: 'true'
