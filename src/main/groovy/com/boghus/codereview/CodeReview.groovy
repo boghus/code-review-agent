@@ -57,8 +57,10 @@ class CodeReview {
                 repositoryDirectory
             )
             timings.put('diff_generation', elapsedMillis(stageStartedAt))
+            logTiming('diff_generation', timings.get('diff_generation'))
         } catch (Exception ex) {
             timings.put('diff_generation', elapsedMillis(stageStartedAt))
+            logTiming('diff_generation', timings.get('diff_generation'))
             writer.writeFailure(inputs.outputPath, "Failed to generate Git diff: ${ex.message}")
             println "Code Review Agent: ${RuntimeErrorSanitizer.sanitize(ex)}"
             return
@@ -66,6 +68,7 @@ class CodeReview {
 
         if (!diffFile.exists() || !diffFile.text.trim()) {
             timings.put('total_internal', elapsedMillis(totalStartedAt))
+            logTiming('total_internal', timings.get('total_internal'))
             writer.writeEmpty(inputs.outputPath)
             println 'Code Review Agent: empty diff, wrote empty review.'
             return
@@ -76,8 +79,10 @@ class CodeReview {
         try {
             rules = TrustedRulesLoader.load(inputs.baseSha, inputs.rulesPath, repositoryDirectory)
             timings.put('trusted_rules', elapsedMillis(stageStartedAt))
+            logTiming('trusted_rules', timings.get('trusted_rules'))
         } catch (IllegalArgumentException ex) {
             timings.put('trusted_rules', elapsedMillis(stageStartedAt))
+            logTiming('trusted_rules', timings.get('trusted_rules'))
             writer.writeTrustedRulesFailure(
                 inputs.outputPath,
                 'The trusted review rules are invalid or do not point to a regular file in the pull request base revision.'
@@ -86,6 +91,7 @@ class CodeReview {
             return
         } catch (IllegalStateException ex) {
             timings.put('trusted_rules', elapsedMillis(stageStartedAt))
+            logTiming('trusted_rules', timings.get('trusted_rules'))
             writer.writeTrustedRulesFailure(
                 inputs.outputPath,
                 'The trusted review rules could not be loaded from the pull request base revision.'
@@ -101,6 +107,7 @@ class CodeReview {
         DiffSizeGuard.DiffSizeDecision size = sizeGuard.evaluate(diff)
         if (!size.acceptable) {
             timings.put('diff_analysis', elapsedMillis(stageStartedAt))
+            logTiming('diff_analysis', timings.get('diff_analysis'))
             writer.writeTooLarge(inputs.outputPath, size.reason, size.bytes, size.lines,
                 inputs.maxDiffBytes, inputs.maxDiffLines)
             println "Code Review Agent: diff too large (${size.bytes}B/${size.lines}L), wrote warning."
@@ -109,8 +116,10 @@ class CodeReview {
 
         DiffAnalyzer analyzer = DiffAnalyzer.parse(diff)
         timings.put('diff_analysis', elapsedMillis(stageStartedAt))
+            logTiming('diff_analysis', timings.get('diff_analysis'))
         if (!analyzer.hasChanges()) {
             timings.put('total_internal', elapsedMillis(totalStartedAt))
+            logTiming('total_internal', timings.get('total_internal'))
             writer.writeEmpty(inputs.outputPath)
             println 'Code Review Agent: no code changes detected, wrote empty review.'
             return
@@ -120,6 +129,7 @@ class CodeReview {
         ReviewPromptBuilder promptBuilder = new ReviewPromptBuilder()
         ReviewRequest request = promptBuilder.buildRequest(rules, diff, inputs.language)
         timings.put('prompt_building', elapsedMillis(stageStartedAt))
+            logTiming('prompt_building', timings.get('prompt_building'))
 
         stageStartedAt = System.nanoTime()
         ReviewTrace trace = ReviewTrace.create(
@@ -135,10 +145,12 @@ class CodeReview {
             performanceOnly ? 0 : GeminiAdapter.MAX_OUTPUT_TOKENS
         )
         timings.put('trace_building', elapsedMillis(stageStartedAt))
+            logTiming('trace_building', timings.get('trace_building'))
         trace.log()
 
         if (performanceOnly) {
             timings.put('total_internal', elapsedMillis(totalStartedAt))
+            logTiming('total_internal', timings.get('total_internal'))
             writePerformanceReport(inputs.outputPath, timings)
             println 'Code Review Agent performance-only run completed.'
             return
@@ -149,8 +161,10 @@ class CodeReview {
         try {
             provider = AiProviderFactory.create(inputs.provider, inputs.apiKey, inputs.model)
             timings.put('provider_creation', elapsedMillis(stageStartedAt))
+            logTiming('provider_creation', timings.get('provider_creation'))
         } catch (IllegalArgumentException ex) {
             timings.put('provider_creation', elapsedMillis(stageStartedAt))
+            logTiming('provider_creation', timings.get('provider_creation'))
             writer.writeMisconfigured(inputs.outputPath, ex.message)
             println "Code Review Agent: ${RuntimeErrorSanitizer.sanitize(ex)}"
             return
@@ -160,6 +174,7 @@ class CodeReview {
         try {
             String text = provider.review(request)
             timings.put('provider_review', elapsedMillis(stageStartedAt))
+            logTiming('provider_review', timings.get('provider_review'))
 
             stageStartedAt = System.nanoTime()
             writer.writeAiGenerated(
@@ -168,16 +183,22 @@ class CodeReview {
                 inputs.language
             )
             timings.put('response_processing', elapsedMillis(stageStartedAt))
+            logTiming('response_processing', timings.get('response_processing'))
             timings.put('total_internal', elapsedMillis(totalStartedAt))
+            logTiming('total_internal', timings.get('total_internal'))
             println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.type().configName}/${inputs.model}."
         } catch (AiProviderException ex) {
             timings.put('provider_review', elapsedMillis(stageStartedAt))
+            logTiming('provider_review', timings.get('provider_review'))
             timings.put('total_internal', elapsedMillis(totalStartedAt))
+            logTiming('total_internal', timings.get('total_internal'))
             writer.writeFailure(inputs.outputPath, ex.userMessage)
             println "Code Review Agent: ${provider.type().configName} failure [${ex.category}]: ${RuntimeErrorSanitizer.sanitize(ex.cause ?: ex)}"
         } catch (JsonException ex) {
             timings.put('response_processing', elapsedMillis(stageStartedAt))
+            logTiming('response_processing', timings.get('response_processing'))
             timings.put('total_internal', elapsedMillis(totalStartedAt))
+            logTiming('total_internal', timings.get('total_internal'))
             writer.writeFailure(
                 inputs.outputPath,
                 'The AI provider returned malformed JSON.'
@@ -185,7 +206,9 @@ class CodeReview {
             println "Code Review Agent: malformed JSON review response: ${RuntimeErrorSanitizer.sanitize(ex)}"
         } catch (IllegalArgumentException ex) {
             timings.put('response_processing', elapsedMillis(stageStartedAt))
+            logTiming('response_processing', timings.get('response_processing'))
             timings.put('total_internal', elapsedMillis(totalStartedAt))
+            logTiming('total_internal', timings.get('total_internal'))
             writer.writeFailure(
                 inputs.outputPath,
                 'The AI provider returned JSON that does not match the review contract.'
@@ -193,11 +216,17 @@ class CodeReview {
             println "Code Review Agent: invalid JSON review response: ${RuntimeErrorSanitizer.sanitize(ex)}"
         } catch (Exception ex) {
             timings.put('response_processing', elapsedMillis(stageStartedAt))
+            logTiming('response_processing', timings.get('response_processing'))
             timings.put('total_internal', elapsedMillis(totalStartedAt))
+            logTiming('total_internal', timings.get('total_internal'))
             String userMessage = "The AI provider (**${provider.type().configName}**, model `${inputs.model}`) failed unexpectedly. Check the workflow log for the technical error and retry."
             writer.writeFailure(inputs.outputPath, userMessage)
             println "Code Review Agent: unexpected failure: ${RuntimeErrorSanitizer.sanitize(ex)}"
         }
+    }
+
+    private static void logTiming(String stage, long durationMillis) {
+        println 'Code Review Agent timing: ' + stage + '=' + durationMillis + ' ms'
     }
 
     private static long elapsedMillis(long startedAt) {
