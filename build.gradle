@@ -13,7 +13,7 @@ repositories {
 }
 
 dependencies {
-    implementation localGroovy()
+    implementation 'org.apache.groovy:groovy:5.1.0'
     implementation 'com.google.genai:google-genai:1.61.0'
     implementation 'org.apache.groovy:groovy-json:5.1.0'
 
