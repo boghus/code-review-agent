@@ -6,7 +6,9 @@ import com.boghus.codereview.provider.AiProvider
 import com.boghus.codereview.provider.AiProviderCapabilities
 import com.boghus.codereview.provider.AiProviderType
 import com.boghus.codereview.provider.ReviewRequest
+import com.boghus.codereview.review.ReviewLanguage
 import com.boghus.codereview.review.ReviewPromptBuilder
+import com.boghus.codereview.review.ReviewResponseJsonParser
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
@@ -27,7 +29,7 @@ class CodeReviewIntegrationTest {
 
         @Override
         String review(ReviewRequest request) {
-            return '## 🤖 Code Review Agent by boghus\n\nNo findings.\n'
+            return '{"summary":"No findings.","findings":[]}'
         }
     }
 
@@ -54,14 +56,22 @@ class CodeReviewIntegrationTest {
             outputPath: output.absolutePath
         )
 
-        ReviewRequest request = new ReviewPromptBuilder().buildRequest('', diff.text)
+        ReviewRequest request = new ReviewPromptBuilder().buildRequest('', diff.text, ReviewLanguage.ENGLISH)
         String text = new FakeProvider().review(request)
-        new ReviewReportWriter().writeAiGenerated(output.absolutePath, text)
+        def response = ReviewResponseJsonParser.parse(text)
+        new ReviewReportWriter().writeAiGenerated(output.absolutePath, response, ReviewLanguage.ENGLISH)
 
         assertThat(output.text)
-            .startsWith(ReviewReportWriter.COMMENT_MARKER)
-            .contains('🤖 Code Review Agent by boghus')
-            .contains('No findings')
+            .startsWith(ReviewReportWriter.COMMENT_MARKER + '\n## 🤖 Code Review Agent')
+            .contains('**No findings.**')
+            .contains('No issues requiring changes were found in this PR.')
+            .contains('**Summary**')
+            .contains('No findings.')
+            .contains('0 CRITICAL')
+            .contains('0 HIGH')
+            .contains('0 MEDIUM')
+            .contains('0 LOW')
+            .doesNotContain('{"summary"')
     }
 
     @Test

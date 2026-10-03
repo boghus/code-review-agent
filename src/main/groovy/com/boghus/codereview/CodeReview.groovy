@@ -13,12 +13,14 @@ import com.boghus.codereview.review.DiffAnalyzer
 import com.boghus.codereview.review.DiffBuilder
 import com.boghus.codereview.review.DiffSizeGuard
 import com.boghus.codereview.review.ReviewPromptBuilder
+import com.boghus.codereview.review.ReviewResponseJsonParser
 import com.boghus.codereview.review.ReviewTrace
+import groovy.json.JsonException
 import groovy.transform.CompileStatic
 
 /**
  * Orchestrator. Reads inputs, builds the structured review request, calls the
- * AI provider and writes the resulting markdown. Posting the comment is
+ * AI provider and writes the resulting review report. Posting the comment is
  * delegated to the composite action steps (peter-evans).
  *
  * <p>The orchestrator is provider-agnostic: it only knows about
@@ -49,9 +51,6 @@ class CodeReview {
         println "Code Review Agent: repository workspace=${repositoryDirectory}"
 
         try {
-            // Gradle runs this application with the action project as its
-            // project directory (-p GITHUB_ACTION_PATH). Git operations must
-            // always run against the checked-out repository workspace.
             DiffBuilder.build(
                 diffFile,
                 inputs.baseSha,
@@ -136,11 +135,27 @@ class CodeReview {
 
         try {
             String text = provider.review(request)
-            writer.writeAiGenerated(inputs.outputPath, text)
+            writer.writeAiGenerated(
+                inputs.outputPath,
+                ReviewResponseJsonParser.parse(text),
+                inputs.language
+            )
             println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.type().configName}/${inputs.model}."
         } catch (AiProviderException ex) {
             writer.writeFailure(inputs.outputPath, ex.userMessage)
             println "Code Review Agent: ${provider.type().configName} failure [${ex.category}]: ${RuntimeErrorSanitizer.sanitize(ex.cause ?: ex)}"
+        } catch (JsonException ex) {
+            writer.writeFailure(
+                inputs.outputPath,
+                'The AI provider returned malformed JSON.'
+            )
+            println "Code Review Agent: malformed JSON review response: ${RuntimeErrorSanitizer.sanitize(ex)}"
+        } catch (IllegalArgumentException ex) {
+            writer.writeFailure(
+                inputs.outputPath,
+                'The AI provider returned JSON that does not match the review contract.'
+            )
+            println "Code Review Agent: invalid JSON review response: ${RuntimeErrorSanitizer.sanitize(ex)}"
         } catch (Exception ex) {
             String userMessage = "The AI provider (**${provider.type().configName}**, model `${inputs.model}`) failed unexpectedly. Check the workflow log for the technical error and retry."
             writer.writeFailure(inputs.outputPath, userMessage)

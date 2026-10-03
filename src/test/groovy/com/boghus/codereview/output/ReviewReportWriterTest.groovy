@@ -1,5 +1,9 @@
 package com.boghus.codereview.output
 
+import com.boghus.codereview.review.ReviewFinding
+import com.boghus.codereview.review.ReviewLanguage
+import com.boghus.codereview.review.ReviewResponse
+import com.boghus.codereview.review.ReviewSeverity
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
@@ -23,18 +27,92 @@ class ReviewReportWriterTest {
     }
 
     @Test
-    void 'writeAiGenerated prepends marker and disclaimer'() {
+    void 'writeAiGenerated renders a human-readable review from the structured response'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
 
-        writer.writeAiGenerated(file.absolutePath, '## body')
+        ReviewResponse response = new ReviewResponse(
+            'Se encontró un hallazgo importante.',
+            [new ReviewFinding(
+                ReviewSeverity.HIGH,
+                'Posible NullPointerException',
+                'src/Foo.groovy',
+                42,
+                'El valor puede ser nulo antes de invocar el método.',
+                'La ejecución podría fallar en tiempo de ejecución.',
+                'Valida el valor antes de utilizarlo.'
+            )]
+        )
+
+        writer.writeAiGenerated(file.absolutePath, response, ReviewLanguage.SPANISH)
 
         String content = file.text
+
         assertThat(content)
-            .startsWith(ReviewReportWriter.COMMENT_MARKER)
+            .startsWith(ReviewReportWriter.COMMENT_MARKER + '\n## 🤖 Code Review Agent')
+            .contains('**Resumen**')
+            .contains('Se encontró un hallazgo importante.')
+            .contains('🟠 **HIGH — Posible NullPointerException**')
+            .contains('`src/Foo.groovy:42`')
+            .contains('**Qué encontramos**')
+            .contains('El valor puede ser nulo antes de invocar el método.')
+            .contains('**Impacto**')
+            .contains('La ejecución podría fallar en tiempo de ejecución.')
+            .contains('**Qué hacer**')
+            .contains('Valida el valor antes de utilizarlo.')
+            .contains('🟠 1 HIGH')
+            .contains('0 CRITICAL')
+            .contains('0 MEDIUM')
+            .contains('0 LOW')
             .contains('⚠️ **AI-generated review:**')
-            .contains('false positives, false negatives, or incorrect recommendations')
-            .contains('Please validate the findings before making changes.')
+            .doesNotContain('{"summary"')
+    }
+
+    @Test
+    void 'writeAiGenerated produces a concise no-findings review'() {
+        File file = File.createTempFile('cra-report-', '.md')
+        file.deleteOnExit()
+
+        ReviewResponse response = new ReviewResponse('No findings.', [])
+
+        writer.writeAiGenerated(file.absolutePath, response, ReviewLanguage.SPANISH)
+
+        assertThat(file.text)
+            .contains('**Sin hallazgos.**')
+            .contains('No encontramos problemas que requieran cambios en este PR.')
+            .contains('**Resumen**')
+            .contains('No findings.')
+            .contains('0 CRITICAL')
+            .contains('0 HIGH')
+            .contains('0 MEDIUM')
+            .contains('0 LOW')
+    }
+
+    @Test
+    void 'writeAiGenerated handles optional finding fields'() {
+        File file = File.createTempFile('cra-report-', '.md')
+        file.deleteOnExit()
+
+        ReviewResponse response = new ReviewResponse(
+            'Resumen.',
+            [new ReviewFinding(
+                ReviewSeverity.LOW,
+                'Nombre poco descriptivo',
+                null,
+                null,
+                'El nombre dificulta entender la intención del código.',
+                null,
+                null
+            )]
+        )
+
+        writer.writeAiGenerated(file.absolutePath, response, ReviewLanguage.SPANISH)
+
+        assertThat(file.text)
+            .contains('🔵 **LOW — Nombre poco descriptivo**')
+            .contains('**Qué encontramos**')
+            .doesNotContain('**Impacto**')
+            .doesNotContain('**Qué hacer**')
     }
 
     @Test
@@ -51,9 +129,6 @@ class ReviewReportWriterTest {
 
     @Test
     void 'failure, misconfigured, too-large and empty paths do NOT include AI disclaimer'() {
-        // Defence-in-depth: only AI-generated paths get the disclaimer. The
-        // non-AI paths (failure, misconfigured, too-large, empty) must NOT
-        // carry it, because they were never produced by the model.
         File f1 = File.createTempFile('cra-', '.md'); f1.deleteOnExit()
         File f2 = File.createTempFile('cra-', '.md'); f2.deleteOnExit()
         File f3 = File.createTempFile('cra-', '.md'); f3.deleteOnExit()
@@ -77,7 +152,8 @@ class ReviewReportWriterTest {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
 
-        new ReviewReportWriter('v1.0.0-rc', 'abc123456789').writeAiGenerated(file.absolutePath, '## body')
+        ReviewResponse response = new ReviewResponse('Resumen.', [])
+        new ReviewReportWriter('v1.0.0-rc', 'abc123456789').writeAiGenerated(file.absolutePath, response, ReviewLanguage.SPANISH)
 
         String body = file.text
         int beforeFooter = body.indexOf('\n---\n🤖 Code Review Agent')
@@ -89,8 +165,9 @@ class ReviewReportWriterTest {
     void 'labels tag references as "tag" in version footer'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
+        ReviewResponse response = new ReviewResponse('Resumen.', [])
 
-        new ReviewReportWriter('refs/tags/v1.0.0-rc', 'abc123456789').writeAiGenerated(file.absolutePath, '## body')
+        new ReviewReportWriter('refs/tags/v1.0.0-rc', 'abc123456789').writeAiGenerated(file.absolutePath, response, ReviewLanguage.SPANISH)
 
         assertThat(file.text)
             .contains('Version: refs/tags/v1.0.0-rc (tag)')
@@ -101,8 +178,9 @@ class ReviewReportWriterTest {
     void 'labels branch references as "branch" in version footer'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
+        ReviewResponse response = new ReviewResponse('Resumen.', [])
 
-        new ReviewReportWriter('refs/heads/main', 'abc123456789').writeAiGenerated(file.absolutePath, '## body')
+        new ReviewReportWriter('refs/heads/main', 'abc123456789').writeAiGenerated(file.absolutePath, response, ReviewLanguage.SPANISH)
 
         assertThat(file.text)
             .contains('Version: refs/heads/main (branch)')
@@ -113,9 +191,10 @@ class ReviewReportWriterTest {
     void 'labels 40-char hex SHA references as "sha" in version footer'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
-
+        ReviewResponse response = new ReviewResponse('Resumen.', [])
         String sha = 'f00c83797e0a2ba46be11d2fcaf6e389247823cc'
-        new ReviewReportWriter(sha, sha).writeAiGenerated(file.absolutePath, '## body')
+
+        new ReviewReportWriter(sha, sha).writeAiGenerated(file.absolutePath, response, ReviewLanguage.SPANISH)
 
         assertThat(file.text)
             .contains("Version: ${sha} (sha)")
@@ -126,8 +205,9 @@ class ReviewReportWriterTest {
     void 'leaves unknown ref formats unlabelled'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
+        ReviewResponse response = new ReviewResponse('Resumen.', [])
 
-        new ReviewReportWriter('refs/pull/42/merge', 'abc123456789').writeAiGenerated(file.absolutePath, '## body')
+        new ReviewReportWriter('refs/pull/42/merge', 'abc123456789').writeAiGenerated(file.absolutePath, response, ReviewLanguage.SPANISH)
 
         assertThat(file.text)
             .contains('Version: refs/pull/42/merge\n')
@@ -138,8 +218,9 @@ class ReviewReportWriterTest {
     void 'blank ref is treated as absent metadata'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
+        ReviewResponse response = new ReviewResponse('Resumen.', [])
 
-        new ReviewReportWriter('   ', '   ').writeAiGenerated(file.absolutePath, '## body')
+        new ReviewReportWriter('   ', '   ').writeAiGenerated(file.absolutePath, response, ReviewLanguage.SPANISH)
 
         assertThat(file.text)
             .doesNotContain('Version:')
@@ -150,8 +231,9 @@ class ReviewReportWriterTest {
     void 'does not add version metadata when writer is used outside GitHub Actions'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
+        ReviewResponse response = new ReviewResponse('Resumen.', [])
 
-        writer.writeAiGenerated(file.absolutePath, '## body')
+        writer.writeAiGenerated(file.absolutePath, response, ReviewLanguage.SPANISH)
 
         assertThat(file.text)
             .doesNotContain('Version:')
@@ -165,9 +247,6 @@ class ReviewReportWriterTest {
 
     @Test
     void 'legacy marker is recognised as a v1 search key only'() {
-        // Sanity check: LEGACY_MARKER must NOT be written by any new body,
-        // it exists solely so the action's find step can locate v1 comments
-        // and replace them with the new marker.
         assertThat(ReviewReportWriter.LEGACY_MARKER).isEqualTo('<!-- code-review-agent -->')
         assertThat(ReviewReportWriter.LEGACY_MARKER).isNotEqualTo(ReviewReportWriter.COMMENT_MARKER)
     }
@@ -176,7 +255,6 @@ class ReviewReportWriterTest {
     void 'writeFailure contains visible identity and unavailable header'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
-
         writer.writeFailure(file.absolutePath, 'something broke')
 
         assertThat(file.text)
@@ -189,7 +267,6 @@ class ReviewReportWriterTest {
     void 'writeMisconfigured signals skipped review and visible identity'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
-
         writer.writeMisconfigured(file.absolutePath, 'missing key')
 
         assertThat(file.text)
@@ -202,7 +279,6 @@ class ReviewReportWriterTest {
     void 'writeEmpty signals no changes and visible identity'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
-
         writer.writeEmpty(file.absolutePath)
 
         assertThat(file.text)
@@ -215,7 +291,6 @@ class ReviewReportWriterTest {
     void 'writeTooLarge includes sizes, configured limits and visible identity'() {
         File file = File.createTempFile('cra-report-', '.md')
         file.deleteOnExit()
-
         writer.writeTooLarge(file.absolutePath, 'too big', 250_000, 5_500, 200_000, 4_000)
 
         String body = file.text
@@ -230,18 +305,16 @@ class ReviewReportWriterTest {
 
     @Test
     void 'no body ever carries the legacy marker'() {
-        // Defence-in-depth: assert across every writer entry point that the
-        // legacy v1 marker is never emitted. The legacy marker exists only
-        // so the action's find-comment step can locate v1 comments.
         File f1 = File.createTempFile('cra-', '.md'); f1.deleteOnExit()
         File f2 = File.createTempFile('cra-', '.md'); f2.deleteOnExit()
         File f3 = File.createTempFile('cra-', '.md'); f3.deleteOnExit()
         File f4 = File.createTempFile('cra-', '.md'); f4.deleteOnExit()
         File f5 = File.createTempFile('cra-', '.md'); f5.deleteOnExit()
         File f6 = File.createTempFile('cra-', '.md'); f6.deleteOnExit()
+        ReviewResponse response = new ReviewResponse('Resumen.', [])
 
         writer.write(f1.absolutePath, 'x')
-        writer.writeAiGenerated(f2.absolutePath, 'x')
+        writer.writeAiGenerated(f2.absolutePath, response, ReviewLanguage.SPANISH)
         writer.writeEmpty(f3.absolutePath)
         writer.writeFailure(f4.absolutePath, 'x')
         writer.writeMisconfigured(f5.absolutePath, 'x')
