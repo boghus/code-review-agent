@@ -133,7 +133,34 @@ runs:
         CRA_ACTION_SHA: ${{ github.action_sha || github.event.pull_request.head.sha || github.sha }}
         CRA_MAX_DIFF_BYTES: ${{ inputs.max-diff-bytes }}
         CRA_MAX_DIFF_LINES: ${{ inputs.max-diff-lines }}
-      run: gradle -p "$GITHUB_ACTION_PATH" run --no-daemon --quiet
+      run: |
+        started_at=$(date +%s%3N)
+        echo "::group::Code Review Agent runtime diagnostics"
+        echo "Gradle version:"
+        gradle --version | sed -n '1,8p'
+        echo "Java version:"
+        java -version 2>&1 | head -n 3
+        echo "Workspace: $GITHUB_WORKSPACE"
+        echo "Action path: $GITHUB_ACTION_PATH"
+        echo "Performance-only: $CRA_PERFORMANCE_ONLY"
+        echo "Base SHA: $CRA_BASE_SHA"
+        echo "Head SHA: $CRA_HEAD_SHA"
+        echo "::endgroup::"
+
+        set +e
+        gradle -p "$GITHUB_ACTION_PATH" run --no-daemon --quiet --profile
+        status=$?
+        finished_at=$(date +%s%3N)
+        echo "Code Review Agent Gradle execution: $((finished_at - started_at)) ms"
+
+        profile=$(find "$GITHUB_ACTION_PATH/build/reports/profile" -type f -name '*.html' -printf '%T@ %p\\n' 2>/dev/null | sort -nr | head -n 1 | cut -d' ' -f2-)
+        if [[ -n "$profile" ]]; then
+          echo "Gradle profile generated: $profile"
+        else
+          echo "Gradle profile: not generated"
+        fi
+
+        exit "$status"
 
     - name: Find previous review comment
       id: find-comment
