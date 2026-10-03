@@ -14,6 +14,9 @@ jobs:
     if: github.event.pull_request.head.ref == 'qa/performance-29'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
       - name: Run Code Review Agent in performance-only mode
         uses: ./
         with:
