@@ -6,6 +6,7 @@ import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
 import com.boghus.codereview.provider.AiProviderException
 import com.boghus.codereview.provider.AiProviderFactory
+import com.boghus.codereview.provider.AiProviderType
 import com.boghus.codereview.provider.GeminiAdapter
 import com.boghus.codereview.provider.ReviewRequest
 import com.boghus.codereview.provider.RuntimeErrorSanitizer
@@ -19,20 +20,12 @@ import groovy.json.JsonException
 import groovy.transform.CompileStatic
 
 import java.util.LinkedHashMap
+import java.util.Map
 
 /**
  * Orchestrator. Reads inputs, builds the structured review request, calls the
  * AI provider and writes the resulting review report. Posting the comment is
  * delegated to the composite action steps (peter-evans).
- *
- * <p>The orchestrator is provider-agnostic: it only knows about
- * {@link AiProvider} and {@link AiProviderException}. Adapters are
- * responsible for mapping trusted instructions and untrusted repository
- * content to their provider's available channels.</p>
- *
- * <p>The orchestrator never throws on review-side failures. It writes a
- * report and exits 0 so the PR is never blocked by an unavailable provider,
- * invalid configuration, or unavailable trusted rules.</p>
  */
 @CompileStatic
 class CodeReview {
@@ -73,6 +66,7 @@ class CodeReview {
         }
 
         if (!diffFile.exists() || !diffFile.text.trim()) {
+            timings.put('total_internal', elapsedMillis(totalStartedAt))
             writer.writeEmpty(inputs.outputPath)
             println 'Code Review Agent: empty diff, wrote empty review.'
             return
@@ -82,9 +76,9 @@ class CodeReview {
         stageStartedAt = System.nanoTime()
         try {
             rules = TrustedRulesLoader.load(inputs.baseSha, inputs.rulesPath, repositoryDirectory)
+            timings.put('trusted_rules', elapsedMillis(stageStartedAt))
         } catch (IllegalArgumentException ex) {
-            timings.put('response_processing', elapsedMillis(stageStartedAt))
-            timings.put('total_internal', elapsedMillis(totalStartedAt))
+            timings.put('trusted_rules', elapsedMillis(stageStartedAt))
             writer.writeTrustedRulesFailure(
                 inputs.outputPath,
                 'The trusted review rules are invalid or do not point to a regular file in the pull request base revision.'
@@ -92,6 +86,7 @@ class CodeReview {
             println "Code Review Agent: trusted rules validation failed: ${RuntimeErrorSanitizer.sanitize(ex)}"
             return
         } catch (IllegalStateException ex) {
+            timings.put('trusted_rules', elapsedMillis(stageStartedAt))
             writer.writeTrustedRulesFailure(
                 inputs.outputPath,
                 'The trusted review rules could not be loaded from the pull request base revision.'
@@ -116,28 +111,15 @@ class CodeReview {
         DiffAnalyzer analyzer = DiffAnalyzer.parse(diff)
         timings.put('diff_analysis', elapsedMillis(stageStartedAt))
         if (!analyzer.hasChanges()) {
+            timings.put('total_internal', elapsedMillis(totalStartedAt))
             writer.writeEmpty(inputs.outputPath)
             println 'Code Review Agent: no code changes detected, wrote empty review.'
             return
         }
 
-        AiProvider provider
-        stageStartedAt = System.nanoTime()
-        try {
-            provider = AiProviderFactory.create(inputs.provider, inputs.apiKey, inputs.model)
-        } catch (IllegalArgumentException ex) {
-            timings.put('provider_creation', elapsedMillis(stageStartedAt))
-            writer.writeMisconfigured(inputs.outputPath, ex.message)
-            println "Code Review Agent: ${RuntimeErrorSanitizer.sanitize(ex)}"
-            return
-        }
-
-        timings.put('provider_creation', elapsedMillis(stageStartedAt))
-
         stageStartedAt = System.nanoTime()
         ReviewPromptBuilder promptBuilder = new ReviewPromptBuilder()
         ReviewRequest request = promptBuilder.buildRequest(rules, diff, inputs.language)
-
         timings.put('prompt_building', elapsedMillis(stageStartedAt))
 
         stageStartedAt = System.nanoTime()
@@ -151,7 +133,7 @@ class CodeReview {
             rules,
             request,
             inputs.model,
-            provider.type() == com.boghus.codereview.provider.AiProviderType.GEMINI ? GeminiAdapter.MAX_OUTPUT_TOKENS : 0
+            performanceOnly ? 0 : GeminiAdapter.MAX_OUTPUT_TOKENS
         )
         timings.put('trace_building', elapsedMillis(stageStartedAt))
         trace.log()
@@ -159,7 +141,19 @@ class CodeReview {
         if (performanceOnly) {
             timings.put('total_internal', elapsedMillis(totalStartedAt))
             writePerformanceReport(inputs.outputPath, timings)
-            println "Code Review Agent performance-only run completed."
+            println 'Code Review Agent performance-only run completed.'
+            return
+        }
+
+        AiProvider provider
+        stageStartedAt = System.nanoTime()
+        try {
+            provider = AiProviderFactory.create(inputs.provider, inputs.apiKey, inputs.model)
+            timings.put('provider_creation', elapsedMillis(stageStartedAt))
+        } catch (IllegalArgumentException ex) {
+            timings.put('provider_creation', elapsedMillis(stageStartedAt))
+            writer.writeMisconfigured(inputs.outputPath, ex.message)
+            println "Code Review Agent: ${RuntimeErrorSanitizer.sanitize(ex)}"
             return
         }
 
@@ -167,6 +161,7 @@ class CodeReview {
         try {
             String text = provider.review(request)
             timings.put('provider_review', elapsedMillis(stageStartedAt))
+
             stageStartedAt = System.nanoTime()
             writer.writeAiGenerated(
                 inputs.outputPath,
@@ -190,6 +185,8 @@ class CodeReview {
             )
             println "Code Review Agent: malformed JSON review response: ${RuntimeErrorSanitizer.sanitize(ex)}"
         } catch (IllegalArgumentException ex) {
+            timings.put('response_processing', elapsedMillis(stageStartedAt))
+            timings.put('total_internal', elapsedMillis(totalStartedAt))
             writer.writeFailure(
                 inputs.outputPath,
                 'The AI provider returned JSON that does not match the review contract.'
@@ -202,18 +199,20 @@ class CodeReview {
             writer.writeFailure(inputs.outputPath, userMessage)
             println "Code Review Agent: unexpected failure: ${RuntimeErrorSanitizer.sanitize(ex)}"
         }
+    }
+
     private static long elapsedMillis(long startedAt) {
         return (long) ((System.nanoTime() - startedAt) / 1_000_000L)
     }
 
     private static void writePerformanceReport(String outputPath, LinkedHashMap<String, Long> timings) {
         StringBuilder report = new StringBuilder()
-        report.append('<!-- code-review-agent-by-boghus -->\\n')
-        report.append('## Code Review Agent performance measurement\\n\\n')
-        report.append('This QA run measures internal preparation time without calling the AI provider.\\n\\n')
-        report.append('| Stage | Duration |\\n| --- | ---: |\\n')
+        report.append('<!-- code-review-agent-by-boghus -->\n')
+        report.append('## Code Review Agent performance measurement\n\n')
+        report.append('This QA run measures internal preparation time without calling the AI provider.\n\n')
+        report.append('| Stage | Duration |\n| --- | ---: |\n')
         for (Map.Entry<String, Long> entry : timings.entrySet()) {
-            report.append('| ').append(entry.key).append(' | ').append(entry.value).append(' ms |\\n')
+            report.append('| ').append(entry.key).append(' | ').append(entry.value).append(' ms |\n')
         }
         new File(outputPath).setText(report.toString(), 'UTF-8')
     }
