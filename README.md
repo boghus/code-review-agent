@@ -76,6 +76,73 @@ Real, animated walkthrough of the review pipeline — from PR event to published
 
 The demo is generated from the actual output of `boghus/code-review-agent` running against intentional QA fixtures (real workflow, real Gemini review, real PR comment). It corresponds to the behavior of `main` at the time of the v1.0.0-rc.2 release.
 
+## 💬 What you receive in your Pull Request
+
+Code Review Agent publishes one review comment directly in the Pull Request. The comment is updated on subsequent runs instead of creating a new comment for every push.
+
+### Review with findings
+
+When the reviewer identifies problems worth reviewing, the report contains a summary followed by concrete findings:
+
+```text
+## 🤖 Code Review Agent
+
+**Summary**
+The change introduces a database query inside a loop that can cause unnecessary
+round trips when processing multiple employees.
+
+Found **1 finding** that should be reviewed.
+
+🟠 **HIGH — Query executed inside a loop**
+`src/main/groovy/com/example/EmployeeService.groovy:42`
+
+**What we found**
+The repository lookup is executed once for every employee instead of being
+loaded in a single query before the loop.
+
+**Impact**
+The number of database queries grows with the number of employees processed,
+which can increase response time and database load.
+
+**What to do**
+Load the required employees in one query before entering the loop and reuse
+the result during processing.
+
+**Severity summary:** 🔴 0 CRITICAL · 🟠 1 HIGH · 🟡 0 MEDIUM · 🔵 0 LOW
+```
+
+Each finding can include:
+
+- **Severity** — `CRITICAL`, `HIGH`, `MEDIUM`, or `LOW`.
+- **Title** — a short description of the finding.
+- **File and line** — when the reviewer can associate the finding with a location in the change.
+- **What we found** — the concrete problem identified in the code.
+- **Impact** — why the finding may matter.
+- **What to do** — a suggested action when the reviewer can provide one.
+
+Severity is a signal for prioritizing review; it is **not a guarantee of impact or correctness**.
+
+### Review without findings
+
+When the reviewer does not report findings under the configured review contract, the PR receives:
+
+```text
+## 🤖 Code Review Agent
+
+**No findings.**
+No issues requiring changes were found in this PR.
+
+**Summary**
+The change is focused and no relevant issues were identified.
+
+**Severity summary:** 🔴 0 CRITICAL · 🟠 0 HIGH · 🟡 0 MEDIUM · 🔵 0 LOW
+```
+
+A review with no findings means the reviewer did not report findings for that change. It is **not a guarantee that the code has no bugs**.
+
+The exact wording of the generated summary and findings depends on the PR, repository review rules, configured language, and AI model response. The structure above reflects the output format currently published by the Action.
+
+
 ---
 
 # 🧠 How it works
