@@ -280,6 +280,165 @@ This makes the review engine independent from the underlying model provider.
 
 ---
 
+# 🛠️ Troubleshooting
+
+If your first review does not work as expected, use this checklist before opening an issue. The examples below match the currently supported GitHub Action configuration.
+
+## 🔑 API key or authentication
+
+**How to recognize it:** the report says that `api-key` is missing or authentication failed.
+
+**Likely cause:** the secret was not mapped to the Action, the secret name is incorrect, or the API key cannot access the configured model.
+
+**What to check:**
+
+```yaml
+- uses: boghus/code-review-agent@v1
+  with:
+    api-key: ${{ secrets.MY_AI_KEY }}
+```
+
+Verify that `MY_AI_KEY` exists under **Repository → Settings → Secrets and variables → Actions**.
+
+**Recommended action:** create or update the repository secret and rerun the workflow. Never paste API keys into workflows, issues, or Pull Request comments.
+
+---
+
+## 🤖 Provider or model configuration
+
+**How to recognize it:** the report indicates that the provider is not supported or that the configured provider/model could not complete the review.
+
+**Likely cause:** an unsupported provider or an invalid/unavailable model identifier.
+
+**What to check:**
+
+```yaml
+provider: gemini
+model: gemini-3.6-flash
+```
+
+The currently shipped provider is **Gemini**. OpenAI, Claude, Ollama, and DeepSeek are architecture targets, not currently shipped integrations.
+
+**Recommended action:** start with the supported configuration above and verify any custom model identifier against your Gemini API configuration.
+
+---
+
+## 🧩 Git diff generation
+
+**How to recognize it:** the report contains `Failed to generate Git diff`.
+
+**Likely cause:** the Action could not build the diff between the Pull Request base and head commits.
+
+**What to check:**
+
+1. Confirm the workflow runs on the `pull_request` event.
+2. Check the **Run Code Review Agent** step in the workflow logs.
+3. Verify that the Pull Request still has valid base and head commits.
+4. If the failure appeared after rebasing or force-pushing, rerun the workflow.
+
+**Recommended action:** rerun after confirming the PR commits are available. If it persists, include the workflow run URL and error message when opening an issue.
+
+An empty diff is not necessarily an error: a PR with no effective changes can produce an empty review.
+
+---
+
+## 💬 Review generated but not published
+
+**How to recognize it:** review generation succeeds, but no Code Review Agent comment appears on the Pull Request.
+
+**Likely cause:** the workflow token cannot write Pull Request comments.
+
+**What to check:**
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+```
+
+Also check the steps that find and create/update the review comment.
+
+**Recommended action:** if `github-token` uses `${{ github.token }}`, add the required permissions at workflow or job level and rerun the workflow. For Pull Requests from forks, check whether GitHub restricts `GITHUB_TOKEN` to read-only. If you configure a custom `github-token`, verify that token's permissions; workflow permissions do not grant permissions to that token. The Action keeps one identifiable review comment and updates it on subsequent runs.
+
+---
+
+## 📚 Invalid `rules-path`
+
+**How to recognize it:** the report says that the trusted review rules are invalid or could not be loaded from the Pull Request base revision.
+
+**Likely cause:** the configured path is not a valid repository-relative file, the file does not exist in the PR base, or the path contains unsafe components.
+
+**What to check:**
+
+```yaml
+rules-path: .github/code_review_rules.md
+```
+
+The path must be relative to the repository, point to a regular file, not start with `/` or `-`, and not contain empty, `.` or `..` path components.
+
+Rules are loaded from the **PR base ref**, not from the modified version inside the Pull Request.
+
+**Recommended action:** make sure the rules file exists in the target branch and that `rules-path` points to it. Changes to that file inside the same PR are intentionally not used to review that PR.
+
+---
+
+## 🔐 GitHub Actions permissions
+
+**How to recognize it:** the Action can run the review but fails when publishing or updating the Pull Request comment.
+
+**Likely cause:** the workflow token does not have sufficient permissions.
+
+**What to check:**
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+```
+
+For restricted repositories or organizations, also check **Settings → Actions → General**.
+
+**Recommended action:** grant only the required permissions and rerun the workflow. The GitHub token is used for GitHub operations and is kept separate from the AI provider process; it is not sent as part of the review request.
+
+---
+
+## 🤷 Review without findings or unexpected output
+
+**How to recognize it:** the review is published successfully, but contains no findings or does not look as expected.
+
+**Likely causes:** the diff contains no relevant changes, the review rules do not request the analysis you expected, the diff is too large, or the model returned no findings.
+
+**What to check:**
+
+```yaml
+max-diff-bytes: 200000
+max-diff-lines: 4000
+```
+
+If either limit is exceeded, Code Review Agent writes a warning instead of sending the oversized diff to the model. Also review the rules configured through `rules-path`.
+
+**Recommended action:** use a smaller test PR to verify the integration, then test progressively larger or more complex changes.
+
+A review with no findings means the reviewer did not report findings under the configured review contract. It is **not** a guarantee that the code has no bugs.
+
+---
+
+## 🆘 Still having problems?
+
+Before opening an issue, collect:
+
+- the workflow run URL;
+- the Code Review Agent version or Action ref;
+- the configured provider and model;
+- the relevant error message;
+- whether the review comment was created.
+
+Do **not** include API keys, GitHub tokens, or other secrets.
+
+Describe what you expected to happen and what actually happened. This makes the issue easier to reproduce and diagnose.
+
+---
+
 # 🧪 Development
 
 Run the full build:
