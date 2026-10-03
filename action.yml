@@ -147,6 +147,40 @@ runs:
         echo "Head SHA: $CRA_HEAD_SHA"
         echo "::endgroup::"
 
+        if [[ "$CRA_PERFORMANCE_ONLY" == "true" ]]; then
+          echo "::group::Gradle startup diagnostics"
+
+          measure_gradle() {
+            local label="$1"
+            shift
+            local started
+            local finished
+            local status
+
+            started=$(date +%s%3N)
+            echo "Starting: $label"
+            gradle -p "$GITHUB_ACTION_PATH" "$@" --no-daemon --quiet
+            status=$?
+            finished=$(date +%s%3N)
+            echo "Gradle diagnostic: $label = $((finished - started)) ms (exit=$status)"
+
+            return "$status"
+          }
+
+          measure_gradle "help" help
+          help_status=$?
+
+          measure_gradle "tasks" tasks
+          tasks_status=$?
+
+          echo "::endgroup::"
+
+          if [[ "$help_status" -ne 0 || "$tasks_status" -ne 0 ]]; then
+            echo "::error::Gradle diagnostic command failed."
+            exit 1
+          fi
+        fi
+
         set +e
         gradle -p "$GITHUB_ACTION_PATH" run --no-daemon --quiet --profile
         status=$?
