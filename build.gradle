@@ -13,14 +13,19 @@ repositories {
 }
 
 dependencies {
-    implementation localGroovy()
+    implementation platform('org.apache.groovy:groovy-bom:4.0.33')
+    implementation 'org.apache.groovy:groovy'
+    implementation 'org.apache.groovy:groovy-json'
     implementation 'com.google.genai:google-genai:1.61.0'
-    implementation 'org.apache.groovy:groovy-json:5.1.0'
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.assertj:assertj-core:3.27.3'
+}
+
+groovy {
+    groovyVersion = '4.0.33'
 }
 
 application {
@@ -31,8 +36,8 @@ tasks.named('test') {
     useJUnitPlatform()
     finalizedBy tasks.named('jacocoTestReport')
     testLogging {
-        events 'passed', 'skipped', 'failed'
-        showStandardStreams = false
+        events 'failed', 'skipped'
+        exceptionFormat = 'full'
     }
 }
 
@@ -44,9 +49,8 @@ tasks.named('jacocoTestReport') {
     }
 }
 
-tasks.withType(GroovyCompile).configureEach {
+tasks.withType(AbstractCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.compilerArgs += ['-Xlint:all', '-Xlint:-options']
 }
 
 java {
