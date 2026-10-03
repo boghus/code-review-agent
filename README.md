@@ -596,3 +596,6 @@ Apache License 2.0.
 **AI-powered code review, directly inside GitHub.**
 
 </p>
+
+
+<!-- TODO: QA rules-path validation -->
