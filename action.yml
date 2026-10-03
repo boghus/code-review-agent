@@ -9,7 +9,11 @@ branding:
 inputs:
   api-key:
     description: 'API key for the AI provider. Map any repository secret to this input.'
-    required: true
+    required: false
+  performance-only:
+    description: 'QA-only mode: measures internal preparation without calling the AI provider.'
+    required: false
+    default: 'false'
   model:
     description: 'Model identifier passed to the AI provider (e.g. gemini-3.6-flash).'
     required: false
@@ -114,6 +118,7 @@ runs:
         # GitHub API operations belong exclusively to the comment steps below.
         GITHUB_TOKEN: ''
         CRA_API_KEY: ${{ inputs.api-key }}
+        CRA_PERFORMANCE_ONLY: ${{ inputs.performance-only }}
         CRA_PROVIDER: ${{ inputs.provider }}
         CRA_MODEL: ${{ inputs.model }}
         CRA_LANGUAGE: ${{ inputs.language }}
