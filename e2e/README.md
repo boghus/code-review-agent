@@ -1,6 +1,8 @@
-# 🧪 E2E suite — RC1 / v1.0.0
+# 🧪 E2E suite — contrato de releases
 
-Este documento convierte los escenarios validados durante RC1 en una especificación reproducible para la suite E2E de \`v1.0.0\`.
+Este documento define el **contrato base de la suite E2E del Code Review Agent** para los releases actuales y futuros.
+
+La suite debe reutilizar esta especificación como referencia común. Cada release puede agregar escenarios o endurecer assertions, pero no debe redefinir arbitrariamente los contratos existentes.
 
 ## Principios
 
@@ -9,24 +11,27 @@ Este documento convierte los escenarios validados durante RC1 en una especificac
 3. Validar estructura, severidad, cantidad de findings, marker, comentario y comportamiento entre ejecuciones.
 4. Tratar los fallos del provider como errores controlados, no como findings.
 5. Mantener el review AI como non-blocking.
+6. Permitir que cada release agregue escenarios específicos sin romper el contrato base.
 
-## Matriz RC1
+## Matriz base
 
 | Scenario | Fixture | Trigger inicial | Trigger adicional | Resultado esperado |
 |---|---|---|---|---|
-| \`critical\` | Cambio intencional que produzca CRITICAL | \`opened\` | — | Comentario CRA con al menos un finding CRITICAL |
-| \`high\` | Cambio intencional que produzca HIGH | \`opened\` | — | Comentario CRA con al menos un finding HIGH |
-| \`medium\` | Cambio intencional que produzca MEDIUM | \`opened\` | — | Comentario CRA con al menos un finding MEDIUM |
-| \`clean\` | Cambio sin findings bajo las reglas del fixture | \`opened\` | — | Comentario CRA con 0 findings |
-| \`idempotency\` | PR con review CRA existente | \`opened\` | \`synchronize\` | Un solo comentario CRA; se actualiza |
-| \`provider-failure\` | Provider/model inválido o fallo controlado | \`opened\` | — | Error controlado, sin findings inventados |
+| `critical` | Cambio intencional que produzca CRITICAL | `opened` | — | Comentario CRA con al menos un finding CRITICAL |
+| `high` | Cambio intencional que produzca HIGH | `opened` | — | Comentario CRA con al menos un finding HIGH |
+| `medium` | Cambio intencional que produzca MEDIUM | `opened` | — | Comentario CRA con al menos un finding MEDIUM |
+| `clean` | Cambio sin findings bajo las reglas del fixture | `opened` | — | Comentario CRA con 0 findings |
+| `idempotency` | PR con review CRA existente | `opened` | `synchronize` | Un solo comentario CRA; se actualiza |
+| `provider-failure` | Provider/model inválido o fallo controlado | `opened` | — | Error controlado, sin findings inventados |
+
+Estos escenarios forman el **mínimo contractual común**. Una versión concreta puede agregar escenarios adicionales cuando introduzca comportamiento nuevo que requiera validación E2E.
 
 ## Contrato común
 
 Todos los escenarios deben comprobar:
 
-- existe un comentario identificable por el marker \`<!-- code-review-agent-by-boghus -->\`;
-- el comentario pertenece a \`github-actions[bot]\`;
+- existe un comentario identificable por el marker `<!-- code-review-agent-by-boghus -->`;
+- el comentario pertenece a `github-actions[bot]`;
 - el reporte tiene la estructura soportada por la versión bajo prueba;
 - el texto narrativo generado por Gemini no se compara literalmente.
 
@@ -38,156 +43,112 @@ Para escenarios con findings se valida:
 - archivo/línea cuando el fixture lo haga determinista;
 - consistencia del resumen de severidades.
 
-Para \`clean\` se valida:
+Para `clean` se valida:
 
 - exactamente 0 findings;
 - CRITICAL, HIGH, MEDIUM y LOW en cero;
 - marker presente.
 
-## \`critical\`
+## Escenarios base
 
-### Fixture
+### `critical`
 
-Cambio deliberado que active una regla CRITICAL conocida del fixture.
+**Fixture:** cambio deliberado que active una regla CRITICAL conocida del fixture.
 
-### Trigger
+**Trigger:** `pull_request.opened`
 
-\`pull_request.opened\`
+**PASS:**
 
-### PASS
+- existe exactamente un comentario CRA;
+- contiene al menos un finding CRITICAL;
+- el marker aparece una vez.
 
-Existe exactamente un comentario CRA, contiene al menos un finding CRITICAL y el marker aparece una vez.
+**FAIL:** no existe comentario, no existe CRITICAL o se generan múltiples comentarios CRA.
 
-### FAIL
+### `high`
 
-No existe comentario, no existe CRITICAL o se generan múltiples comentarios CRA.
+**Fixture:** cambio deliberado que active una regla HIGH conocida.
 
-## \`high\`
+**Trigger:** `pull_request.opened`
 
-### Fixture
+**PASS:** existe exactamente un comentario CRA con al menos un finding HIGH y el marker aparece una vez.
 
-Cambio deliberado que active una regla HIGH conocida.
+**FAIL:** no existe el finding HIGH esperado o se duplica el comentario.
 
-### Trigger
+### `medium`
 
-\`pull_request.opened\`
+**Fixture:** cambio deliberado que active una regla MEDIUM conocida.
 
-### PASS
+**Trigger:** `pull_request.opened`
 
-Existe exactamente un comentario CRA con al menos un finding HIGH y el marker aparece una vez.
+**PASS:** existe exactamente un comentario CRA con al menos un finding MEDIUM y el marker aparece una vez.
 
-### FAIL
+**FAIL:** no existe el finding MEDIUM esperado o se duplica el comentario.
 
-No existe el finding HIGH esperado o se duplica el comentario.
+### `clean`
 
-## \`medium\`
+**Fixture:** cambio pequeño y deliberadamente limpio respecto de las reglas configuradas.
 
-### Fixture
+**Trigger:** `pull_request.opened`
 
-Cambio deliberado que active una regla MEDIUM conocida.
+**PASS:** el review se publica, conserva el marker y reporta cero findings en todas las severidades.
 
-### Trigger
-
-\`pull_request.opened\`
-
-### PASS
-
-Existe exactamente un comentario CRA con al menos un finding MEDIUM y el marker aparece una vez.
-
-### FAIL
-
-No existe el finding MEDIUM esperado o se duplica el comentario.
-
-## \`clean\`
-
-### Fixture
-
-Cambio pequeño y deliberadamente limpio respecto de las reglas configuradas.
-
-### Trigger
-
-\`pull_request.opened\`
-
-### PASS
-
-El review se publica, conserva el marker y reporta cero findings en todas las severidades.
-
-### FAIL
-
-No existe comentario, aparecen findings contra el contrato del fixture o se publican múltiples comentarios CRA.
+**FAIL:** no existe comentario, aparecen findings contra el contrato del fixture o se publican múltiples comentarios CRA.
 
 > 0 findings significa que el reviewer no reportó problemas bajo el contrato configurado; no significa que el código esté libre de bugs.
 
-## \`idempotency\`
+### `idempotency`
 
 Comprueba que un PR tenga un solo comentario del Code Review Agent.
 
-### Fixture
+**Triggers:**
 
-PR que ya recibió una primera revisión CRA.
+1. `pull_request.opened`
+2. modificación del PR que genere `pull_request.synchronize`
 
-### Triggers
+`reopened` queda como trigger adicional a automatizar cuando el runner pueda producirlo de forma determinista.
 
-1. \`pull_request.opened\`
-2. Modificación del PR que genere \`pull_request.synchronize\`
-
-\`reopened\` queda como trigger adicional a automatizar cuando el runner pueda producirlo de forma determinista.
-
-### Assertions
-
-Después del primer trigger:
+**Assertions después del primer trigger:**
 
 - existe exactamente un comentario CRA;
 - se captura su ID;
 - existe el marker.
 
-Después de \`synchronize\`:
+**Assertions después de `synchronize`:**
 
 - sigue existiendo exactamente un comentario CRA;
 - el ID es el mismo;
 - el contenido corresponde a la segunda ejecución;
 - no aparece un segundo comentario CRA.
 
-### PASS
+**PASS:** el comentario existente se actualiza in place.
 
-El comentario existente se actualiza in place.
+**FAIL:** se crea un segundo comentario, desaparece el anterior, cambia el ID sin razón o la segunda ejecución no actualiza el resultado.
 
-### FAIL
-
-Se crea un segundo comentario, desaparece el anterior, cambia el ID sin razón o la segunda ejecución no actualiza el resultado.
-
-## \`provider-failure\`
+### `provider-failure`
 
 Cubre un fallo del provider/modelo y la configuración inválida del provider cuando corresponda.
 
-### Fixture
+**Fixture:** configuración deliberadamente inválida o provider preparado para fallar.
 
-Configuración deliberadamente inválida o provider preparado para fallar.
+**Trigger:** `pull_request.opened`
 
-### Trigger
-
-\`pull_request.opened\`
-
-### Assertions
+**Assertions:**
 
 - el fallo se identifica como error de provider/configuración;
 - no se inventan findings;
 - el comportamiento de publicación corresponde al contrato de error;
 - no se exponen API keys, tokens ni secretos.
 
-### PASS
+**PASS:** el fallo se maneja de forma controlada y observable.
 
-El fallo se maneja de forma controlada y observable.
-
-### FAIL
-
-El workflow queda bloqueado sin el comportamiento documentado, se publican findings ficticios o se exponen secretos.
+**FAIL:** el workflow queda bloqueado sin el comportamiento documentado, se publican findings ficticios o se exponen secretos.
 
 ## Reglas de los fixtures
 
 Cada fixture debe declarar:
 
-\`\`\`text
+```text
 scenario
 fixture repository
 rules file
@@ -195,7 +156,7 @@ expected severity
 expected finding count/minimum
 expected file/line, when deterministic
 trigger
-\`\`\`
+```
 
 Las reglas utilizadas durante el review deben provenir del **base ref** del PR. Un cambio de reglas dentro del PR no debe modificar las reglas confiables usadas para ese mismo review.
 
@@ -228,20 +189,33 @@ No se comparan literalmente:
 - redacción de títulos sin contrato explícito;
 - cualquier párrafo narrativo generado por el modelo.
 
+## Evolución por release
+
+Este documento define el **contrato base permanente** de la suite E2E.
+
+Para cada release:
+
+1. se ejecutan los escenarios base;
+2. se agregan escenarios cuando el release introduce comportamiento nuevo;
+3. se mantienen las assertions de los escenarios existentes salvo que exista un cambio de contrato explícito;
+4. cualquier cambio incompatible debe documentarse como cambio de contrato y actualizar la estrategia E2E correspondiente;
+5. los fixtures y runners pueden evolucionar independientemente mientras sigan cumpliendo este contrato.
+
+Por ejemplo, `v1.0.0` utiliza la matriz base como parte de su validación de release, pero las siguientes versiones deben reutilizar esta misma matriz como **baseline**, no como una suite exclusiva de `v1.0.0`.
+
 ## Criterio global de PASS
 
-La suite RC1 es reproducible cuando:
+La suite es reproducible cuando:
 
 1. cada escenario puede ejecutarse desde un fixture conocido;
 2. el trigger está definido;
 3. el resultado esperado está expresado como assertions observables;
 4. las assertions no dependen de texto generado literalmente por Gemini;
 5. un fallo de provider puede distinguirse de un review válido;
-6. \`idempotency\` demuestra que el comentario CRA se actualiza en lugar de duplicarse.
+6. `idempotency` demuestra que el comentario CRA se actualiza en lugar de duplicarse.
 
 ## Relación con la implementación
 
-Esta especificación define **qué debe demostrar la suite**. No obliga a que el runner y los fixtures vivan dentro de este repositorio.
+Esta especificación define **qué debe demostrar la suite**, no dónde deben vivir sus runners o fixtures.
 
-El PR #85 ya estableció la orquestación de release para \`critical\`, \`high\`, \`medium\`, \`clean\`, \`idempotency\` y \`provider-failure\`. Este documento formaliza el contrato que debe cumplir cada escenario.
-
+El PR #85 estableció la orquestación de release para `critical`, `high`, `medium`, `clean`, `idempotency` y `provider-failure`. Este documento formaliza el contrato base que debe cumplir cada escenario y que deberá reutilizarse en releases posteriores.
