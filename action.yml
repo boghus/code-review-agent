@@ -23,7 +23,7 @@ inputs:
     required: false
     default: 'en'
   rules-path:
-    description: "Repository-relative Git tree path to trusted review rules. Absolute paths, leading '-', and '.', '..' path components are rejected. Rules are always read from the PR base ref."
+    description: "Optional repository-relative path to trusted review rules. If the file is absent from the PR base ref, review continues without repository-specific rules. Absolute paths, leading '-', and '.', '..' path components are rejected."
     required: false
     default: '.github/code_review_rules.md'
   diff-path:
