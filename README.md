@@ -53,7 +53,7 @@ jobs:
       - uses: boghus/code-review-agent@v1
         with:
           api-key: ${{ secrets.MY_AI_KEY }}
-          model: gemini-3.6-flash
+          model: gemini-3.8-flash
 ```
 
 ### Add your Gemini API key
@@ -374,7 +374,7 @@ This makes the review engine independent from the underlying model provider.
 | Input | Required | Default | Description |
 |---|---:|---|---|
 | `api-key` | ✅ | — | AI provider API key |
-| `model` | | `gemini-3.6-flash` | Model identifier |
+| `model` | | `gemini-3.8-flash` | Model identifier |
 | `provider` | | `gemini` | AI provider |
 | `language` | | `en` | Review language |
 | `rules-path` | | `.github/code_review_rules.md` | Review rules |
@@ -420,7 +420,7 @@ Verify that `MY_AI_KEY` exists under **Repository → Settings → Secrets and v
 
 ```yaml
 provider: gemini
-model: gemini-3.6-flash
+model: gemini-3.8-flash
 ```
 
 The currently shipped provider is **Gemini**. OpenAI, Claude, Ollama, and DeepSeek are architecture targets, not currently shipped integrations.
