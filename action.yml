@@ -23,7 +23,7 @@ inputs:
     required: false
     default: 'en'
   rules-path:
-    description: "Optional repository-relative path to trusted review rules. If omitted or empty, review continues without custom rules. If configured, the file must exist and be valid. Rules are always read from the PR base ref."
+    description: "Optional repository-relative Markdown file with trusted review rules. If omitted or empty, the built-in review rules are used. A configured file replaces the defaults and must exist in the PR base ref."
     required: false
   diff-path:
     description: 'Path where the PR diff is written before review.'
