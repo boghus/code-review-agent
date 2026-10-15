@@ -62,12 +62,12 @@ class TrustedRulesLoader {
 
     private static GitTreeEntry findEntry(String baseSha, String rulesPath, File repositoryDirectory) {
         String output = git(['ls-tree', '-z', baseSha, '--', rulesPath], repositoryDirectory)
-        String entry = output.split('\\u0000', -1).find { String candidate -> candidate }
+        String entry = output.split('\u0000', -1).find { String candidate -> candidate }
         if (!entry) {
             return null
         }
 
-        int tab = entry.indexOf('\\t')
+        int tab = entry.indexOf('\t')
         if (tab < 0) {
             return null
         }
