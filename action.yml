@@ -8,14 +8,14 @@ branding:
 
 inputs:
   api-key:
-    description: 'API key for the AI provider. Map any repository secret to this input.'
+    description: 'API key for the configured AI provider. Map any repository secret to this input.'
     required: true
   model:
-    description: 'Model identifier passed to the AI provider (e.g. gemini-3.8-flash).'
+    description: 'Model identifier passed to the provider (e.g. gemini-3.8-flash or openrouter/free).'
     required: false
     default: 'gemini-3.8-flash'
   provider:
-    description: 'AI provider implementation. Currently only "gemini" is supported.'
+    description: 'AI provider implementation: "gemini" or "openrouter".'
     required: false
     default: 'gemini'
   language:
@@ -94,9 +94,6 @@ runs:
             echo "$WORKSPACE/$raw"
           fi
         }
-        # Keep rules-path as data passed through the environment; it is never
-        # interpolated into this Bash source. Full validation is performed by
-        # the Groovy trusted-rules loader before any Git access.
         if [[ "$RULES_RAW" == /* ]]; then
           echo "::error::rules-path must be a path inside the repository, not an absolute filesystem path. Got: $RULES_RAW" >&2
           exit 1
@@ -110,8 +107,6 @@ runs:
     - name: Run Code Review Agent
       shell: bash
       env:
-        # Explicitly remove the GitHub token from the AI process boundary.
-        # GitHub API operations belong exclusively to the comment steps below.
         GITHUB_TOKEN: ''
         CRA_API_KEY: ${{ inputs.api-key }}
         CRA_PROVIDER: ${{ inputs.provider }}
@@ -137,9 +132,6 @@ runs:
         token: ${{ inputs.github-token }}
         issue-number: ${{ github.event.pull_request.number }}
         comment-author: github-actions[bot]
-        # Accept both the new marker and the legacy v1 marker so existing
-        # comments from earlier releases are picked up and replaced in
-        # place instead of producing a duplicate.
         body-regex: '<!-- code-review-agent-by-boghus -->|<!-- code-review-agent -->'
 
     - name: Create or update review comment
