@@ -3,7 +3,8 @@ package com.boghus.codereview.github
 import groovy.transform.CompileStatic
 
 /**
- * Loads trusted review rules from the pull request base Git tree.
+ * Loads trusted review rules from the PR base tree when a repository supplies
+ * a custom rules file, or the built-in rules bundled with the Action otherwise.
  *
  * rules-path is untrusted input and is always passed to Git as data through
  * ProcessBuilder. No shell is involved, so shell metacharacters remain data.
@@ -11,9 +12,11 @@ import groovy.transform.CompileStatic
 @CompileStatic
 class TrustedRulesLoader {
 
+    private static final String DEFAULT_RULES_RESOURCE = '/com/boghus/codereview/default-review-rules.md'
+
     static String load(String baseSha, String rulesPath, File repositoryDirectory) {
         if (!rulesPath?.trim()) {
-            return ''
+            return loadDefaultRules()
         }
         validate(baseSha, rulesPath)
 
@@ -26,6 +29,18 @@ class TrustedRulesLoader {
 
         String objectPath = baseSha + ':' + rulesPath
         git(['show', objectPath], repositoryDirectory)
+    }
+
+    private static String loadDefaultRules() {
+        InputStream stream = TrustedRulesLoader.class.getResourceAsStream(DEFAULT_RULES_RESOURCE)
+        if (stream == null) {
+            throw new IllegalStateException('Built-in default review rules resource is missing')
+        }
+        try {
+            return stream.getText('UTF-8').trim()
+        } finally {
+            stream.close()
+        }
     }
 
     static void validate(String baseSha, String rulesPath) {
@@ -47,12 +62,12 @@ class TrustedRulesLoader {
 
     private static GitTreeEntry findEntry(String baseSha, String rulesPath, File repositoryDirectory) {
         String output = git(['ls-tree', '-z', baseSha, '--', rulesPath], repositoryDirectory)
-        String entry = output.split('\u0000', -1).find { String candidate -> candidate }
+        String entry = output.split('\\u0000', -1).find { String candidate -> candidate }
         if (!entry) {
             return null
         }
 
-        int tab = entry.indexOf('\t')
+        int tab = entry.indexOf('\\t')
         if (tab < 0) {
             return null
         }
