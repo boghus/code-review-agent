@@ -56,9 +56,27 @@ jobs:
           model: gemini-3.8-flash
 ```
 
-### Add your Gemini API key
+### Configure Gemini
 
 Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey), then save it as a GitHub Actions secret named `MY_AI_KEY`.
+
+### Configure OpenRouter (MVP)
+
+1. Create an API key at [OpenRouter](https://openrouter.ai/keys).
+2. Save it as a GitHub Actions secret named `OPENROUTER_API_KEY`.
+3. Configure the Action explicitly:
+
+```yaml
+- uses: boghus/code-review-agent@v1
+  with:
+    api-key: ${{ secrets.OPENROUTER_API_KEY }}
+    provider: openrouter
+    model: openrouter/free
+```
+
+`openrouter/free` dynamically selects an available free model. Free-tier rate limits and provider availability can change; this MVP is intended for low-volume use and testing, not guaranteed availability. See [OpenRouter pricing](https://openrouter.ai/pricing) and the [free router documentation](https://openrouter.ai/docs/guides/routing/routers/free-router).
+
+The generic `api-key` input is reused, and the GitHub token remains separate from the AI provider. The OpenRouter adapter uses the JDK HTTP client, so no additional provider SDK dependency is needed.
 
 Open a PR and let Code Review Agent by boghus review it.
 
@@ -205,9 +223,9 @@ For privacy-sensitive or enterprise environments, the architecture can accommoda
 - 🧠 DeepSeek-based local models
 - 🏠 Other self-hosted LLM runtimes
 
-> **Current RC2 provider:** Gemini.
+> **Currently shipped providers:** Gemini and OpenRouter (MVP).
 >
-> OpenAI, Claude, Ollama, and DeepSeek are represented as provider targets/architecture capabilities, not as currently shipped integrations unless explicitly implemented in the project.
+> OpenAI, Claude, Ollama, and DeepSeek remain architecture targets, not shipped integrations.
 
 This distinction keeps the README honest while making the provider architecture clear.
 
@@ -423,7 +441,7 @@ provider: gemini
 model: gemini-3.8-flash
 ```
 
-The currently shipped provider is **Gemini**. OpenAI, Claude, Ollama, and DeepSeek are architecture targets, not currently shipped integrations.
+The currently shipped providers are **Gemini** and **OpenRouter**. For OpenRouter, use `provider: openrouter` and an OpenRouter model ID such as `openrouter/free`.
 
 **Recommended action:** start with the supported configuration above and verify any custom model identifier against your Gemini API configuration.
 
