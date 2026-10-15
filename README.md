@@ -281,16 +281,16 @@ jobs:
           rules-path: .github/review/code_review_rules.md
 ```
 
-To use your own rules instead of the built-in baseline:
+To use a custom rules file instead of the built-in baseline, point `rules-path` to that file:
 
 ```yaml
 - uses: boghus/code-review-agent@v1
   with:
     api-key: ${{ secrets.MY_AI_KEY }}
-    rules-path: ''
+    rules-path: .github/review/code_review_rules.md
 ```
 
-If you configure a path, the file must exist in the PR base; a missing or invalid file raises the existing trusted-rules validation error. A configured custom file replaces the built-in rules for that run.
+If you configure a path, the file must exist in the PR base; a missing or invalid file raises the existing trusted-rules validation error. A configured custom file replaces the built-in rules for that run. Setting `rules-path: ''` is equivalent to omitting the input and keeps the built-in rules.
 
 You can also omit the input entirely and keep the built-in rules:
 
