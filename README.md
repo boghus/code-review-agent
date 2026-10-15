@@ -255,13 +255,7 @@ Code Review Agent lets each repository define review rules and tell the Action w
 
 ### 📚 Where to define the rules
 
-By default, the Action looks for:
-
-```text
-.github/code_review_rules.md
-```
-
-The path is **repository-relative**. You can keep the default or point `rules-path` to another file in your repository.
+Rules are optional. To use repository-specific review rules, configure `rules-path` with a repository-relative path to the file.
 
 For example:
 
@@ -285,7 +279,16 @@ jobs:
           rules-path: .github/review/code_review_rules.md
 ```
 
-If `rules-path` is omitted, the default `.github/code_review_rules.md` is used.
+To disable repository-specific rules explicitly:
+
+```yaml
+- uses: boghus/code-review-agent@v1
+  with:
+    api-key: ${{ secrets.MY_AI_KEY }}
+    rules-path: ''
+```
+
+If `rules-path` is omitted or empty, the review continues without repository-specific rules. If you configure a path, the file must exist in the PR base; a missing or invalid file raises the existing trusted-rules validation error.
 
 ### 📝 What goes in the rules file?
 
@@ -377,7 +380,7 @@ This makes the review engine independent from the underlying model provider.
 | `model` | | `gemini-3.8-flash` | Model identifier |
 | `provider` | | `gemini` | AI provider |
 | `language` | | `en` | Review language |
-| `rules-path` | | `.github/code_review_rules.md` | Review rules |
+| `rules-path` | | — | Optional repository-relative rules file. Omit it or set `''` to disable custom rules. A configured path that is missing or invalid is an error. |
 | `diff-path` | | `cra-pr.diff` | Diff file |
 | `output-path` | | `cra-review.md` | Review output |
 | `github-token` | | `${{ github.token }}` | GitHub API token |
@@ -472,7 +475,7 @@ Also check the steps that find and create/update the review comment.
 
 **How to recognize it:** the report says that the trusted review rules are invalid or could not be loaded from the Pull Request base revision.
 
-**Likely cause:** the configured path is not a valid repository-relative file, the file does not exist in the PR base, or the path contains unsafe components.
+**Likely cause:** a configured `rules-path` is not a valid repository-relative file, the file does not exist in the PR base, or the path contains unsafe components.
 
 **What to check:**
 
@@ -484,7 +487,7 @@ The path must be relative to the repository, point to a regular file, not start 
 
 Rules are loaded from the **PR base ref**, not from the modified version inside the Pull Request.
 
-**Recommended action:** make sure the rules file exists in the target branch and that `rules-path` points to it. Changes to that file inside the same PR are intentionally not used to review that PR.
+**Recommended action:** if you want repository-specific rules, make sure the file exists in the target branch and that `rules-path` points to it. If you do not need custom rules, omit the `rules-path` input or set `rules-path: ''`. Changes to rules inside the same PR are intentionally not used to review that PR.
 
 ---
 

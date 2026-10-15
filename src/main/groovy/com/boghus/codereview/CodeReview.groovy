@@ -89,6 +89,10 @@ class CodeReview {
             return
         }
 
+        if (!rules?.trim()) {
+            println 'Code Review Agent: no repository-specific rules configured; continuing with general review instructions.'
+        }
+
         String diff = diffFile.getText('UTF-8')
 
         DiffSizeGuard sizeGuard = new DiffSizeGuard(inputs.maxDiffBytes, inputs.maxDiffLines)

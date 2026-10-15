@@ -13,7 +13,7 @@ class ActionInputsTest {
 
         assertThat(inputs.provider).isEqualTo(ActionInputs.DEFAULT_PROVIDER)
         assertThat(inputs.model).isEqualTo(ActionInputs.DEFAULT_MODEL)
-        assertThat(inputs.rulesPath).isEqualTo(ActionInputs.DEFAULT_RULES_PATH)
+        assertThat(inputs.rulesPath).isEmpty()
         assertThat(inputs.diffPath).isEqualTo(ActionInputs.DEFAULT_DIFF_PATH)
         assertThat(inputs.outputPath).isEqualTo(ActionInputs.DEFAULT_OUTPUT_PATH)
         assertThat(inputs.language).isEqualTo(ReviewLanguage.ENGLISH)
@@ -47,6 +47,13 @@ class ActionInputsTest {
         assertThat(inputs.outputPath).isEqualTo('/tmp/out.md')
         assertThat(inputs.maxDiffBytes).isEqualTo(500_000)
         assertThat(inputs.maxDiffLines).isEqualTo(8_000)
+    }
+
+    @Test
+    void 'allows rules path to be explicitly disabled'() {
+        ActionInputs inputs = ActionInputs.fromEnvironment([CRA_RULES_PATH: ''])
+
+        assertThat(inputs.rulesPath).isEmpty()
     }
 
     @Test
