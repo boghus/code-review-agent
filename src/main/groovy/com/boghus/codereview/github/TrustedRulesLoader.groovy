@@ -15,7 +15,12 @@ class TrustedRulesLoader {
         validate(baseSha, rulesPath)
 
         GitTreeEntry entry = findEntry(baseSha, rulesPath, repositoryDirectory)
-        if (entry == null || entry.type != 'blob' || !(entry.mode in ['100644', '100755'])) {
+        // Repository-specific rules are optional. An absent path means the
+        // reviewer proceeds with its built-in instructions and no extra rules.
+        if (entry == null) {
+            return ''
+        }
+        if (entry.type != 'blob' || !(entry.mode in ['100644', '100755'])) {
             throw new IllegalArgumentException(
                 "rules-path must point to a regular file in base ref '${baseSha}': ${rulesPath}"
             )
