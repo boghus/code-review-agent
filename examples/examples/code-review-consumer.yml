@@ -27,6 +27,6 @@ jobs:
         uses: boghus/code-review-agent@v1
         with:
           api-key: ${{ secrets.MY_AI_KEY }}
-          model: gemini-3.6-flash
+          model: gemini-3.8-flash
           provider: gemini
           rules-path: .github/code_review_rules.md

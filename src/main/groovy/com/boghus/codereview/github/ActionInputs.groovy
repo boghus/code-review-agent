@@ -14,7 +14,7 @@ import groovy.transform.CompileStatic
 class ActionInputs {
 
     static final String DEFAULT_PROVIDER = 'gemini'
-    static final String DEFAULT_MODEL = 'gemini-3.6-flash'
+    static final String DEFAULT_MODEL = 'gemini-3.8-flash'
     static final String DEFAULT_RULES_PATH = '.github/code_review_rules.md'
     static final String DEFAULT_DIFF_PATH = 'cra-pr.diff'
     static final String DEFAULT_OUTPUT_PATH = 'cra-review.md'

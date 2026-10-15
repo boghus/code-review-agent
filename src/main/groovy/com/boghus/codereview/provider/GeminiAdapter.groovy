@@ -40,7 +40,7 @@ class GeminiAdapter implements AiProvider {
             .apiKey(apiKey)
             .httpOptions(
                 HttpOptions.builder()
-                    .timeout(60_000)
+                    .timeout(180_000)
                     .retryOptions(
                         HttpRetryOptions.builder()
                             .attempts(3)
