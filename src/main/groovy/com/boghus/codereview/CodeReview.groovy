@@ -89,8 +89,10 @@ class CodeReview {
             return
         }
 
-        if (!rules?.trim()) {
-            println 'Code Review Agent: no repository-specific rules configured; continuing with general review instructions.'
+        if (!inputs.rulesPath?.trim()) {
+            println 'Code Review Agent: using built-in default review rules.'
+        } else {
+            println 'Code Review Agent: using repository-specific review rules from the PR base ref.'
         }
 
         String diff = diffFile.getText('UTF-8')

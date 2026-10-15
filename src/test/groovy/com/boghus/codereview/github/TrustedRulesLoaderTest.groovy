@@ -88,12 +88,17 @@ class TrustedRulesLoaderTest {
     }
 
     @Test
-    void 'returns no rules when rules path is empty'() {
+    void 'loads built-in default rules when rules path is empty'() {
         File repository = createRepository('README.md', '# project')
 
         String rules = TrustedRulesLoader.load('not-needed', '', repository)
 
-        assertThat(rules).isEmpty()
+        assertThat(rules)
+            .contains('Code Review Agent by boghus')
+            .contains('Correctness and logic')
+            .contains('Security and privacy')
+            .contains('Evidence and findings quality')
+            .isNotBlank()
     }
 
     @Test
