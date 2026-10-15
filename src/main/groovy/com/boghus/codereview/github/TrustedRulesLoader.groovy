@@ -12,6 +12,9 @@ import groovy.transform.CompileStatic
 class TrustedRulesLoader {
 
     static String load(String baseSha, String rulesPath, File repositoryDirectory) {
+        if (!rulesPath?.trim()) {
+            return ''
+        }
         validate(baseSha, rulesPath)
 
         GitTreeEntry entry = findEntry(baseSha, rulesPath, repositoryDirectory)

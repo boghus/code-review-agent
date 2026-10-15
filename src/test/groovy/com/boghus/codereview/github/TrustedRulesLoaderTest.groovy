@@ -88,11 +88,20 @@ class TrustedRulesLoaderTest {
     }
 
     @Test
-    void 'fails when rules do not exist in base tree'() {
-        File repository = createRepository('rules.md', '# trusted rules')
+    void 'returns no rules when rules path is empty'() {
+        File repository = createRepository('README.md', '# project')
+
+        String rules = TrustedRulesLoader.load('not-needed', '', repository)
+
+        assertThat(rules).isEmpty()
+    }
+
+    @Test
+    void 'fails when a configured rules file is absent from the base tree'() {
+        File repository = createRepository('README.md', '# project')
         String baseSha = git(repository, 'rev-parse', 'HEAD')
 
-        assertThatThrownBy { TrustedRulesLoader.load(baseSha, 'missing.md', repository) }
+        assertThatThrownBy { TrustedRulesLoader.load(baseSha, '.github/code_review_rules.md', repository) }
             .isInstanceOf(IllegalArgumentException)
             .hasMessageContaining('regular file')
     }

@@ -15,7 +15,6 @@ class ActionInputs {
 
     static final String DEFAULT_PROVIDER = 'gemini'
     static final String DEFAULT_MODEL = 'gemini-3.8-flash'
-    static final String DEFAULT_RULES_PATH = '.github/code_review_rules.md'
     static final String DEFAULT_DIFF_PATH = 'cra-pr.diff'
     static final String DEFAULT_OUTPUT_PATH = 'cra-review.md'
 
@@ -42,7 +41,8 @@ class ActionInputs {
         inputs.apiKey = env.CRA_API_KEY
         inputs.provider = env.CRA_PROVIDER ?: DEFAULT_PROVIDER
         inputs.model = env.CRA_MODEL ?: DEFAULT_MODEL
-        inputs.rulesPath = env.CRA_RULES_PATH ?: DEFAULT_RULES_PATH
+        // An omitted or empty value disables repository-specific rules.
+        inputs.rulesPath = env.CRA_RULES_PATH ?: ''
         inputs.diffPath = env.CRA_DIFF_PATH ?: DEFAULT_DIFF_PATH
         inputs.outputPath = env.CRA_OUTPUT_PATH ?: DEFAULT_OUTPUT_PATH
         inputs.language = InputParser.parseLanguage(env.CRA_LANGUAGE)

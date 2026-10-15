@@ -60,8 +60,8 @@ class ReviewPromptBuilderTest {
         def request = builder.buildRequest('', '')
 
         assertThat(request.developerInstructions)
-            .contains('Review requirements:\n- Follow the repository rules')
-            .doesNotContain('\n        - Follow the repository rules')
+            .contains('Review requirements:\n- No repository-specific rules are configured.')
+            .doesNotContain('\n        - No repository-specific rules are configured.')
     }
 
     @Test
@@ -74,7 +74,7 @@ class ReviewPromptBuilderTest {
         assertThat(request.systemInstructions)
             .contains('You are a Senior Software Engineer reviewing a Pull Request.')
         assertThat(request.developerInstructions)
-            .contains('Follow the repository rules below as trusted review configuration.')
+            .contains('No repository-specific rules are configured. Apply general code review best practices.')
     }
 
     @Test
