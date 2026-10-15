@@ -290,6 +290,14 @@ To disable repository-specific rules explicitly:
 
 If `rules-path` is omitted or empty, the review continues without repository-specific rules. If you configure a path, the file must exist in the PR base; a missing or invalid file raises the existing trusted-rules validation error.
 
+You can also omit the input entirely:
+
+```yaml
+- uses: boghus/code-review-agent@v1
+  with:
+    api-key: ${{ secrets.MY_AI_KEY }}
+```
+
 ### 📝 What goes in the rules file?
 
 The rules file contains the conventions and checks you want the AI reviewer to apply to the Pull Request. Keep them concrete and actionable.
