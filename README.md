@@ -480,11 +480,11 @@ Also check the steps that find and create/update the review comment.
 rules-path: .github/code_review_rules.md
 ```
 
-The path must be relative to the repository, point to a regular file, not start with `/` or `-`, and not contain empty, `.` or `..` path components.
+The path must be relative to the repository, not start with `/` or `-`, and not contain empty, `.` or `..` path components. If the file is absent from the PR base ref, the review continues without repository-specific rules and uses the agent's built-in review instructions.
 
-Rules are loaded from the **PR base ref**, not from the modified version inside the Pull Request.
+Rules are loaded from the **PR base ref**, not from the modified version inside the Pull Request. This prevents a contributor from changing the trusted rules in the same PR and using those changes to alter that review.
 
-**Recommended action:** make sure the rules file exists in the target branch and that `rules-path` points to it. Changes to that file inside the same PR are intentionally not used to review that PR.
+**Recommended action:** add the file to the target branch if you want custom repository rules. If you do not need custom rules, no file is required.
 
 ---
 
