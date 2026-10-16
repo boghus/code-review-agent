@@ -16,6 +16,23 @@ import static org.assertj.core.api.Assertions.assertThat
 class RulesPathSafetyContractTest {
 
     @Test
+    void 'forwards the optional rules path to CRA_RULES_PATH'() {
+        String action = new File('action.yml').text
+        int start = action.indexOf('  rules-path:')
+        int end = action.indexOf('  diff-path:', start)
+
+        assertThat(start).isGreaterThanOrEqualTo(0)
+        assertThat(end).isGreaterThan(start)
+
+        String input = action.substring(start, end)
+        assertThat(input).doesNotContain('default:')
+        assertThat(action)
+            .contains('RULES_RAW: ${{ inputs.rules-path }}')
+            .contains('echo "rules-relative=$RULES_RAW"')
+            .contains('CRA_RULES_PATH: ${{ steps.resolve-paths.outputs.rules-relative }}')
+    }
+
+    @Test
     void 'accepts plain relative paths'() {
         assertThat(isSafe('.github/code_review_rules.md')).isTrue()
         assertThat(isSafe('docs/review.md')).isTrue()
