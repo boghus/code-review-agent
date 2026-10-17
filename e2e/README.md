@@ -207,6 +207,34 @@ No se comparan literalmente:
 - redacción de títulos sin contrato explícito;
 - cualquier párrafo narrativo generado por el modelo.
 
+## Ejecución del harness
+
+El contrato se consume mediante `e2e/scenarios.json` y el runner `e2e/harness/run.sh`.
+
+El runner:
+
+1. selecciona un escenario habilitado;
+2. crea una branch temporal en el repositorio fixture;
+3. materializa el cambio del fixture;
+4. crea un Pull Request real;
+5. espera mediante polling el workflow consumidor;
+6. obtiene el comentario del Code Review Agent;
+7. ejecuta las assertions deterministas del escenario;
+8. devuelve `PASS` o `FAIL`;
+9. cierra el PR y elimina la branch, salvo que `KEEP_E2E_PR=true` se use para debugging.
+
+Variables mínimas:
+
+```bash
+export GITHUB_TOKEN=...
+export E2E_FIXTURE_REPOSITORY=boghus/msp_energia
+bash e2e/harness/run.sh clean
+```
+
+El token necesita permisos para crear/eliminar branches, crear/cerrar Pull Requests, leer Actions y leer comentarios del PR. El harness nunca imprime el token.
+
+Los escenarios todavía no habilitados permanecen declarados en `scenarios.json` para que la configuración ejecutable refleje el contrato, pero no se consideran PASS hasta que exista un fixture reproducible.
+
 ## Evolución por release
 
 Este documento define el **contrato base permanente** de la suite E2E.
@@ -238,4 +266,4 @@ Esta especificación define **qué debe demostrar la suite**, no dónde deben vi
 
 El PR #85 estableció la orquestación de release para `critical`, `high`, `medium`, `clean`, `idempotency` y `provider-failure`. Este documento formaliza el contrato base que debe cumplir cada escenario y que deberá reutilizarse en releases posteriores.
 
-El siguiente paso de implementación es el **E2E Test Harness (#128)**, que debe consumir estos contratos sin tener que interpretar qué significa PASS o FAIL.
+El E2E Test Harness (#128) consume ahora este contrato mediante `scenarios.json` y un runner reutilizable. El baseline ejecutable actualmente es `clean`; los demás escenarios quedan explícitamente deshabilitados hasta que sus fixtures sean reproducibles.

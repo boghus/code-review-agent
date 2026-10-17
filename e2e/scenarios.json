@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "clean",
+      "enabled": true,
+      "trigger": "opened",
+      "fixture": {
+        "repository": "boghus/msp_energia",
+        "baseRef": "main",
+        "path": ".e2e/clean-fixture.md",
+        "content": "# E2E clean fixture\n\nThis file intentionally contains no security-sensitive or functional behavior.\n"
+      },
+      "workflow": {
+        "path": ".github/workflows/code-review-agent.yml",
+        "timeoutSeconds": 600,
+        "pollSeconds": 10
+      },
+      "expected": {
+        "verdict": "APPROVE",
+        "severities": {
+          "CRITICAL": 0,
+          "HIGH": 0,
+          "MEDIUM": 0,
+          "LOW": 0
+        },
+        "marker": "<!-- code-review-agent-by-boghus -->"
+      }
+    },
+    {
+      "id": "critical",
+      "enabled": false,
+      "reason": "Requires a fixed reproducible CRITICAL fixture commit."
+    },
+    {
+      "id": "high",
+      "enabled": false,
+      "reason": "Requires a fixed reproducible HIGH fixture commit."
+    },
+    {
+      "id": "medium",
+      "enabled": false,
+      "reason": "Requires a fixed reproducible MEDIUM fixture commit."
+    },
+    {
+      "id": "idempotency",
+      "enabled": false,
+      "reason": "Second-trigger mutation support is deferred until the baseline fixture is materialized."
+    },
+    {
+      "id": "provider-failure",
+      "enabled": false,
+      "reason": "Requires a controlled consumer workflow configuration for the provider failure fixture."
+    }
+  ]
+}
