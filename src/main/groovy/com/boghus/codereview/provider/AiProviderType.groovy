@@ -2,15 +2,10 @@ package com.boghus.codereview.provider
 
 import groovy.transform.CompileStatic
 
-/**
- * Supported AI provider types.
- *
- * The configuration-facing name is kept at the boundary while the domain
- * uses this enum to avoid provider magic strings internally.
- */
 @CompileStatic
 enum AiProviderType {
-    GEMINI('gemini')
+    GEMINI('gemini'),
+    OPENROUTER('openrouter')
 
     final String configName
 
