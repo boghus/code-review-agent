@@ -255,7 +255,9 @@ Code Review Agent lets each repository define review rules and tell the Action w
 
 ### 📚 Where to define the rules
 
-Rules are optional. To use repository-specific review rules, configure `rules-path` with a repository-relative path to the file.
+**Built-in rules are enabled by default.** If you omit `rules-path` or set it to an empty string, Code Review Agent uses its bundled review rules—our baseline for correctness, security, data integrity, performance, concurrency, reliability, and actionable findings. You do not need to create a rules file to get this baseline.
+
+To replace the built-in rules with rules tailored to your repository, configure `rules-path` with a repository-relative path to a Markdown file.
 
 For example:
 
@@ -279,18 +281,18 @@ jobs:
           rules-path: .github/review/code_review_rules.md
 ```
 
-To disable repository-specific rules explicitly:
+To use a custom rules file instead of the built-in baseline, point `rules-path` to that file:
 
 ```yaml
 - uses: boghus/code-review-agent@v1
   with:
     api-key: ${{ secrets.MY_AI_KEY }}
-    rules-path: ''
+    rules-path: .github/review/code_review_rules.md
 ```
 
-If `rules-path` is omitted or empty, the review continues without repository-specific rules. If you configure a path, the file must exist in the PR base; a missing or invalid file raises the existing trusted-rules validation error.
+If you configure a path, the file must exist in the PR base; a missing or invalid file raises the existing trusted-rules validation error. A configured custom file replaces the built-in rules for that run. Setting `rules-path: ''` is equivalent to omitting the input and keeps the built-in rules.
 
-You can also omit the input entirely:
+You can also omit the input entirely and keep the built-in rules:
 
 ```yaml
 - uses: boghus/code-review-agent@v1
@@ -298,9 +300,11 @@ You can also omit the input entirely:
     api-key: ${{ secrets.MY_AI_KEY }}
 ```
 
-### 📝 What goes in the rules file?
+### 📝 How the rules file works
 
-The rules file contains the conventions and checks you want the AI reviewer to apply to the Pull Request. Keep them concrete and actionable.
+The default rules are maintained in [`src/main/resources/com/boghus/codereview/default-review-rules.md`](src/main/resources/com/boghus/codereview/default-review-rules.md) and shipped with the Action. They apply automatically when `rules-path` is absent or empty.
+
+A custom rules file is a Markdown document containing the conventions and checks you want the AI reviewer to apply to the Pull Request. When `rules-path` is set, that file **replaces** the built-in rules; it is read from the PR base ref, not from the proposed changes. Keep rules concrete, testable, and actionable. Prefer behavior and risk criteria over subjective formatting preferences.
 
 A minimal example:
 
@@ -388,7 +392,7 @@ This makes the review engine independent from the underlying model provider.
 | `model` | | `gemini-3.8-flash` | Model identifier |
 | `provider` | | `gemini` | AI provider |
 | `language` | | `en` | Review language |
-| `rules-path` | | — | Optional repository-relative rules file. Omit it or set `''` to disable custom rules. A configured path that is missing or invalid is an error. |
+| `rules-path` | | Built-in rules | Optional repository-relative Markdown rules file. Omit it or set `''` to use the built-in rules. A configured file replaces the defaults; a missing or invalid path is an error. |
 | `diff-path` | | `cra-pr.diff` | Diff file |
 | `output-path` | | `cra-review.md` | Review output |
 | `github-token` | | `${{ github.token }}` | GitHub API token |
