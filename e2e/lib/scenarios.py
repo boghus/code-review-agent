@@ -80,7 +80,7 @@ SCENARIOS = [
         "high",
         "functional bug yields a HIGH finding",
         min_counts=(0, 1, 0, 0),
-        expected_files={_fixture_file("high/Counter.groovy")},
+        expected_files={_fixture_file("high/CounterFixture.groovy")},
         min_findings=1,
         expect_severity="HIGH",
     ),
