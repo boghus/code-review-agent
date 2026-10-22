@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: examples-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write
@@ -28,6 +32,10 @@ jobs:
         run: |
           profile=development
 
+          # The glob must be unquoted so `[[ ... == qa/* ]]` is a pattern match.
+          # A quoted "qa/*" only matches a branch literally named `qa/*`, so
+          # every `qa/...` branch (including the E2E fixtures) was silently
+          # sent to the development profile and ran the full build/test suite.
           if [[ "$EVENT_NAME" == "pull_request" && "$HEAD_REF" == qa/* ]]; then
             profile=qa
           fi
