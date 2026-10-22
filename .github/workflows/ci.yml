@@ -11,7 +11,11 @@ permissions:
   issues: write
 
 env:
-  SELF_REVIEW_GEMINI_MODEL: gemini-3.8-flash
+  # E2E fixture for the `provider-failure` scenario: this branch points the
+  # reviewer at a model that does not exist so the run must publish the
+  # non-blocking failure comment instead of findings. Present only on the
+  # qa/e2e-provider-failure branch.
+  SELF_REVIEW_GEMINI_MODEL: invalid-provider-model
 
 jobs:
   context:
