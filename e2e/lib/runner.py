@@ -12,6 +12,15 @@ import scenarios as scenario_registry
 PROVIDER_FAILURE_CLASS = "provider"
 
 
+def _provider_message(body):
+    """First sentence of the provider failure comment, for the report."""
+    lines = [line.strip() for line in body.splitlines()]
+    for line in lines:
+        if line and not line.startswith(("#", "<!--", ">", "---")):
+            return line[:160]
+    return ""
+
+
 class Result(object):
     def __init__(self, scenario, status, checks=None, pr_number=None,
                  comment_id=None, failure_class="", error="", elapsed=0.0,
@@ -114,6 +123,19 @@ def _execute(scenario, repo, base_branch, timeout, log):
             log("  comment updated in place after %ds" % int(update_elapsed))
 
         checks = scenario.run_assertions(body)
+
+        # A scenario expecting a valid review must not be failed against the
+        # structural checks when the action could not reach the provider at
+        # all. Reclassify so the report blames the outage rather than the
+        # product, which is what the failure classification is for.
+        if not scenario.expect_provider_failure and assertions.is_provider_failure(body):
+            checks = [assertions.check(
+                "provider reachable",
+                False,
+                "the action reported the provider as unavailable: %s"
+                % _provider_message(body),
+                failure_class="provider",
+            )]
 
         published = gh_client.cra_comments(repo, pr_number)
         checks.append(assertions.check(

@@ -101,7 +101,7 @@ def describe_failure(result):
     elif result.failure_class == "llm_variance":
         lines.append("  -> model variance: the report is well formed but lacks the finding")
     elif result.failure_class == "provider":
-        lines.append("  -> provider outage, not a product defect")
+        lines.append("  -> provider outage, not a product defect: retry later")
     if result.artifact:
         lines.append("  -> artifact: %s" % result.artifact)
     return "\n".join(lines)

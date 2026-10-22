@@ -335,6 +335,26 @@ def test_missing_expected_severity_fails():
     return ok
 
 
+def test_provider_failure_beats_structural_failures():
+    """A provider outage must not be classified as an action defect.
+
+    When the provider is unreachable the action renders no severity summary,
+    so the structural checks fail too. Those structural checks are tagged
+    ``provider`` when the body reports an outage, and provider-first priority
+    keeps the verdict on the infrastructure instead of the product.
+    """
+    body = (MARKER + "\n## ⚠️ Code Review Agent by boghus unavailable\n\n"
+            "Quota exhausted for **gemini**.\n\n"
+            "The automated review is non-blocking.\n")
+    checks = assert_valid_review(body, min_counts=(1, 0, 0, 0), expect_severity="CRITICAL")
+
+    structural = [c for c in checks if not c.ok and c.failure_class == "action"]
+    ok = classify_failure(checks) == "provider" and not structural
+    print("%s provider outage reclassified, %d structural checks mis-tagged"
+          % ("PASS" if ok else "FAIL", len(structural)))
+    return ok
+
+
 def main():
     case("clean en", test_clean_english)
     case("clean es", test_clean_spanish)
@@ -354,6 +374,7 @@ def main():
     case("extra findings tolerated", test_extra_findings_are_tolerated)
     case("prose URL not a location", test_location_regex_ignores_prose_urls)
     case("missing severity fails", test_missing_expected_severity_fails)
+    case("provider reclassified", test_provider_failure_beats_structural_failures)
 
     print()
     passed = sum(1 for _, ok in RESULTS if ok)

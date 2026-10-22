@@ -240,13 +240,19 @@ def assert_valid_review(body, expected_counts=None, expected_files=None,
     """
     checks = list(assert_identity(body))
 
+    # When the action could not reach the provider it renders no severity
+    # summary, so every structural check below fails. Tag those as provider so
+    # the classification blames the outage instead of the product.
+    outage = is_provider_failure(body)
+    structural_class = "provider" if outage else "action"
+
     checks.append(
         check(
             "valid review branch",
             not is_non_ai_report(body),
             "expected the AI review branch, got a non-AI branch (provider failure, "
             "empty diff or oversized diff)",
-            failure_class="action",
+            failure_class=structural_class,
         )
     )
 
@@ -257,7 +263,7 @@ def assert_valid_review(body, expected_counts=None, expected_files=None,
                 "severity summary present",
                 False,
                 "no severity summary line was rendered",
-                failure_class="action",
+                failure_class=structural_class,
             )
         )
     else:
@@ -383,8 +389,13 @@ def assert_provider_failure(body):
 
 
 def classify_failure(checks):
-    """Pick the single most informative failure class from failing checks."""
-    priority = ("action", "provider", "llm_variance")
+    """Pick the single most informative failure class from failing checks.
+
+    ``provider`` is checked first. When the action cannot reach the provider it
+    renders no severity summary at all, which would otherwise surface as
+    ``action`` through the structural checks and read as a product defect.
+    """
+    priority = ("provider", "action", "llm_variance")
     failing = [item for item in checks if not item.ok and item.failure_class]
     for name in priority:
         for item in failing:
