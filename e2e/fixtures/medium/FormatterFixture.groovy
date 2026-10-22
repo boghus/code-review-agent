@@ -1,40 +1,44 @@
 package com.boghus.codereview.fixtures.medium
 
 /**
- * E2E fixture for the `medium` scenario.
- *
- * This file deliberately duplicates logic and omits tests so the reviewer must
- * report MEDIUM findings about maintainability rather than correctness.
+ * Report formatting helpers.
  */
 class FormatterFixture {
 
     /**
-     * Formats a label.
+     * Formats a value as a percentage.
      *
-     * Duplicated in {@code labelB}; the two copies must stay in sync.
-     *
-     * @param value the value to format
-     * @return the formatted label
+     * @param ratio the ratio to format, between 0 and 1
+     * @return the percentage
      */
-    String labelA(String value) {
-        if (value == null || value.isEmpty()) {
-            return 'n/a'
-        }
-        return "[${value}]"
+    String percent(double ratio) {
+        return "${Math.round(ratio * 100)}%"
     }
 
     /**
-     * Formats a label.
+     * Formats a value as a percentage.
      *
-     * Identical to {@code labelA} with no shared helper.
-     *
-     * @param value the value to format
-     * @return the formatted label
+     * @param ratio the ratio to format, between 0 and 1
+     * @return the percentage
      */
-    String labelB(String value) {
-        if (value == null || value.isEmpty()) {
-            return 'n/a'
+    String percentage(double ratio) {
+        return "${Math.round(ratio * 100)}%"
+    }
+
+    /**
+     * Formats a ratio for display.
+     *
+     * Duplicates the rounding used by {@code percent} without sharing it, and
+     * silently returns {@code null} when the ratio is missing instead of
+     * handling it.
+     *
+     * @param ratio the ratio to format
+     * @return the formatted ratio
+     */
+    String ratio(Double ratio) {
+        if (ratio == null) {
+            return null
         }
-        return "[${value}]"
+        return "${Math.round(ratio * 100)} %"
     }
 }
