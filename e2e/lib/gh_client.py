@@ -138,7 +138,8 @@ def workflow_runs_for_sha(repo, sha):
     """Recent workflow runs for a commit, newest first."""
     return gh_json([
         "run", "list", "--repo", repo, "--commit", sha,
-        "--limit", "20", "--json", "databaseId,name,status,conclusion,headSha,event",
+        "--limit", "20",
+        "--json", "databaseId,name,status,conclusion,headSha,event,createdAt,startedAt",
     ])
 
 
@@ -183,26 +184,31 @@ def wait_for_ci_run(repo, sha, timeout=900, log=None, poll=15):
 
 
 def wait_for_review(repo, number, timeout=480, initial_delay=5, max_delay=30,
-                    log=None):
+                    log=None, not_before=None):
     """Poll until the action publishes exactly one CRA comment.
 
-    Returns ``(comment, elapsed_seconds)``. Raises ``TimeoutError`` when the
-    comment has not appeared within ``timeout`` seconds.
+    ``not_before`` is an ISO-8601 timestamp. When given, a comment published
+    before it is ignored. A pull request keeps the comment from its previous
+    run, so without this bound the harness would grade a stale result as the
+    current one, which is exactly the failure this guards against.
 
-    The delay grows from ``initial_delay`` to ``max_delay`` so a fast review
-    is picked up quickly without hammering the API during the common case of
-    waiting on the provider.
+    Returns ``(comment, elapsed_seconds)``. Raises ``TimeoutError`` when no
+    fresh comment appears within ``timeout`` seconds.
     """
     deadline = time.time() + timeout
     delay = initial_delay
     started = time.time()
     while True:
-        found = cra_comments(repo, number)
+        found = [comment for comment in cra_comments(repo, number)
+                 if not_before is None
+                 or (comment.get("updated_at") or "") >= not_before]
         if found:
             return found[0], time.time() - started
         if time.time() >= deadline:
             raise TimeoutError(
-                "no Code Review Agent comment on #%d after %ds" % (number, timeout)
+                "no Code Review Agent comment on #%d after %ds%s"
+                % (number, timeout,
+                   "" if not_before is None else " published at or after %s" % not_before)
             )
         if log:
             log("      waiting for the comment (%ds elapsed)" % int(time.time() - started))

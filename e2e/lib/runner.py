@@ -92,15 +92,20 @@ def _execute(scenario, repo, base_branch, timeout, log):
         run, run_elapsed = gh_client.wait_for_ci_run(repo, sha, timeout=timeout, log=log)
         if run is None:
             log("  no Examples CI run started for %s" % sha[:7])
-        elif run.get("conclusion") not in ("success", None):
-            # A failed run is not automatically a suite failure: the
-            # provider-failure scenario fails its run on purpose, and the
-            # qa-merge-guard job always exits non-zero for qa branches.
-            log("  Examples CI concluded %s after %ds"
-                % (run.get("conclusion"), int(run_elapsed)))
+        else:
+            if run.get("conclusion") not in ("success", None):
+                # A failed run is not automatically a suite failure: the
+                # provider-failure scenario fails its run on purpose, and the
+                # qa-merge-guard job always exits non-zero for qa branches.
+                log("  Examples CI concluded %s after %ds"
+                    % (run.get("conclusion"), int(run_elapsed)))
+            # Only accept a comment published by this run, otherwise the
+            # previous run's comment is graded as the current result.
+            not_before = run.get("startedAt") or run.get("createdAt")
 
-        comment, wait_elapsed = gh_client.wait_for_review(repo, pr_number,
-                                                          timeout=timeout, log=log)
+        comment, wait_elapsed = gh_client.wait_for_review(
+            repo, pr_number, timeout=timeout, log=log, not_before=not_before
+        )
         body = comment.get("body") or ""
         comment_id = comment["id"]
         log("  comment %s after %ds" % (comment_id, int(wait_elapsed)))
