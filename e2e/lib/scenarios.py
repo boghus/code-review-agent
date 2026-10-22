@@ -19,7 +19,7 @@ class Scenario(object):
     def __init__(self, name, title, expected_counts=None, expected_files=None,
                  min_findings=None, expect_severity=None, expect_clean=False,
                  expect_provider_failure=False, requires_synchronize=False,
-                 extra_assert=None):
+                 timeout=None, extra_assert=None):
         self.name = name
         self.title = title
         self.expected_counts = expected_counts
@@ -29,6 +29,9 @@ class Scenario(object):
         self.expect_clean = expect_clean
         self.expect_provider_failure = expect_provider_failure
         self.requires_synchronize = requires_synchronize
+        # Per-scenario override of the suite timeout, for scenarios that are
+        # expected to be slower than the rest.
+        self.timeout = timeout
         self.extra_assert = extra_assert
 
     @property
@@ -92,6 +95,9 @@ SCENARIOS = [
         "re-running updates the comment instead of duplicating it",
         expected_counts=(0, 0, 0, 0),
         requires_synchronize=True,
+        # The scenario runs the action twice, so it needs room for both runs
+        # plus the empty commit that triggers the second one.
+        timeout=900,
         extra_assert=lambda body: [],
     ),
     Scenario(

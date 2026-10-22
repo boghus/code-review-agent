@@ -112,7 +112,9 @@ def main(argv):
 
     if args.list:
         for scenario in scenario_registry.SCENARIOS:
-            print("%-18s %s  (%s)" % (scenario.name, scenario.title, scenario.branch))
+            timeout = scenario.timeout or args.timeout
+            print("%-18s %s  (%s, timeout %ds)"
+                  % (scenario.name, scenario.title, scenario.branch, timeout))
         return 0
 
     try:

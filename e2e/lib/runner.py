@@ -54,8 +54,10 @@ def _write_artifact(base_dir, scenario, body, ref):
 
 def run_scenario(scenario, repo, base_branch, ref, timeout=480, artifacts_dir=None,
                  log=print):
+    # A scenario-specific timeout wins over the suite default.
+    effective_timeout = scenario.timeout or timeout
     started = time.time()
-    result = _execute(scenario, repo, base_branch, timeout, log)
+    result = _execute(scenario, repo, base_branch, effective_timeout, log)
 
     if result.status != "PASS" and artifacts_dir:
         path = _write_artifact(artifacts_dir, scenario, result.body, ref)
