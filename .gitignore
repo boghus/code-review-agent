@@ -5,3 +5,6 @@ cra-review.md
 .idea/
 *.iml
 .DS_Store
+__pycache__/
+*.pyc
+e2e/artifacts/

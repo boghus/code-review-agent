@@ -1,0 +1,371 @@
+"""Deterministic assertions over a Code Review Agent comment body.
+
+Every assertion in this module targets output produced by
+``ReviewResponseMarkdownRenderer`` / ``ReviewReportWriter``, never by the LLM.
+The model supplies the prose inside ``summary``, ``title``, ``description``,
+``impact`` and ``recommendation``; the renderer supplies the marker, the
+heading, the finding count, the severity labels, the file/line reference and
+the severity summary line. Asserting renderer output keeps the suite stable
+across model, version and temperature changes.
+
+``APPROVE`` / ``CHANGES_REQUESTED`` are deliberately not assertable: the
+product emits no structured verdict. See ``e2e/README.md``.
+"""
+
+import re
+
+MARKER = "<!-- code-review-agent-by-boghus -->"
+LEGACY_MARKER = "<!-- code-review-agent -->"
+
+SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+SEVERITY_ICONS = {"CRITICAL": "🔴", "HIGH": "🟠", "MEDIUM": "🟡", "LOW": "🔵"}
+
+AI_HEADING = "## 🤖 Code Review Agent"
+UNAVAILABLE_HEADING = "unavailable"
+SKIPPED_HEADING = "skipped"
+
+SEVERITY_ORDER = ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+
+# Renderer-emitted counts, e.g.
+# **Severity summary:** 🔴 0 CRITICAL · 🟠 1 HIGH · 🟡 0 MEDIUM · 🔵 0 LOW
+SEVERITY_SUMMARY_RE = re.compile(
+    r"\*\*Severity summary:\*\*\s+🔴\s*(\d+)\s+CRITICAL\s*·\s*🟠\s*(\d+)\s+HIGH"
+    r"\s*·\s*🟡\s*(\d+)\s+MEDIUM\s*·\s*🔵\s*(\d+)\s+LOW"
+)
+# Spanish equivalent emitted when the action runs with language=es.
+SEVERITY_SUMMARY_RE_ES = re.compile(
+    r"\*\*Resumen de severidad:\*\*\s+🔴\s*(\d+)\s+CRITICAL\s*·\s*🟠\s*(\d+)\s+HIGH"
+    r"\s*·\s*🟡\s*(\d+)\s+MEDIUM\s*·\s*🔵\s*(\d+)\s+LOW"
+)
+
+# Renderer-emitted finding count. The English wording is
+# "Found **3 findings**" / "Found **1 finding**"; the Spanish wording is
+# "Encontramos **3 hallazgos**" / "Encontramos **1 hallazgo**".
+FINDINGS_COUNT_RE = re.compile(
+    r"(?:Found\s+\*\*(\d+)\s+finding|Encontramos\s+\*\*(\d+)\s+hallazgo)", re.IGNORECASE
+)
+
+NO_FINDINGS_RE = re.compile(r"\*\*(?:No findings|Sin hallazgos)\.\*\*")
+
+# Per-finding severity label, e.g. "🟠 **HIGH — Some title**"
+FINDING_SEVERITY_RE = re.compile(
+    r"(" + "|".join(SEVERITY_ICONS.values()) + r")\s*\*\*\s*(CRITICAL|HIGH|MEDIUM|LOW)\s+—"
+)
+
+# Location block, e.g. "`src/Foo.groovy:42`"
+LOCATION_RE = re.compile(r"`([^`\n:]+):(\d+)`")
+
+# Patterns that must never survive into a published comment.
+SECRET_PATTERNS = (
+    re.compile(r"AIza[0-9A-Za-z\-_]{10,}"),
+    re.compile(r"\bsk-[0-9A-Za-z\-_]{10,}"),
+    re.compile(r"\bghp_[0-9A-Za-z]{10,}"),
+    re.compile(r"\bgithub_pat_[0-9A-Za-z_]{10,}"),
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+)
+
+
+class Check(object):
+    """A single assertion outcome.
+
+    ``ok`` decides PASS/FAIL. ``failure_class`` distinguishes the three causes
+    the suite must tell apart, so a FAIL is actionable without a retry:
+    ``action`` (bug in the action), ``provider`` (infrastructure) or
+    ``llm_variance`` (report is well formed, expected finding absent).
+    """
+
+    def __init__(self, name, ok, detail="", failure_class=""):
+        self.name = name
+        self.ok = bool(ok)
+        self.detail = detail
+        self.failure_class = failure_class
+
+    def __repr__(self):
+        state = "ok" if self.ok else "FAIL"
+        extra = " [%s]" % self.failure_class if self.failure_class else ""
+        suffix = ": %s" % self.detail if self.detail else ""
+        return "<Check %s %s%s%s>" % (state, self.name, extra, suffix)
+
+
+def check(name, ok, detail="", failure_class=""):
+    return Check(name, ok, detail, failure_class)
+
+
+def marker_count(body):
+    """Number of occurrences of the current marker.
+
+    Uses str.count rather than a regex because the marker contains characters
+    that are meaningful in a pattern.
+    """
+    return body.count(MARKER)
+
+
+def has_legacy_marker(body):
+    return LEGACY_MARKER in body
+
+
+def is_provider_failure(body):
+    """True when the comment reports the action as unavailable or skipped.
+
+    These branches are written by ``ReviewReportWriter.writeFailure`` and
+    friends and never by the model, so this classification is deterministic.
+    """
+    if MARKER not in body:
+        return False
+    if "Code Review Agent by boghus unavailable" in body:
+        return True
+    if "Code Review Agent by boghus skipped" in body:
+        return True
+    return False
+
+
+def is_non_ai_report(body):
+    """True for any renderer branch that is not a valid AI review."""
+    if MARKER not in body:
+        return True
+    if is_provider_failure(body):
+        return True
+    if "No changes to review" in body:
+        return True
+    return AI_HEADING not in body
+
+
+def parse_severity_counts(body):
+    """Return the severity counts as a tuple of ints, or None when absent.
+
+    The line is produced from ``findings.size()`` by the renderer, so the
+    numbers are deterministic even though the surrounding prose is not.
+    """
+    match = SEVERITY_SUMMARY_RE.search(body) or SEVERITY_SUMMARY_RE_ES.search(body)
+    if match is None:
+        return None
+    return tuple(int(group) for group in match.groups())
+
+
+def parse_findings_count(body):
+    """Return the renderer-emitted finding count, or None when absent."""
+    match = FINDINGS_COUNT_RE.search(body)
+    if match is None:
+        return None
+    return int(match.group(1) or match.group(2))
+
+
+def parse_finding_severities(body):
+    """Return the severities of the rendered findings, in document order."""
+    return [match.group(2) for match in FINDING_SEVERITY_RE.finditer(body)]
+
+
+def parse_locations(body):
+    """Return the ``(file, line)`` pairs the renderer emitted."""
+    return [(match.group(1), int(match.group(2))) for match in LOCATION_RE.finditer(body)]
+
+
+def find_secrets(body):
+    """Return the secret-looking substrings that leaked into the comment."""
+    leaked = []
+    for pattern in SECRET_PATTERNS:
+        leaked.extend(match.group(0) for match in pattern.finditer(body))
+    return leaked
+
+
+def expected_severity_line(counts):
+    """Render the exact severity summary line for a tuple of counts."""
+    parts = []
+    for severity, count in zip(SEVERITY_ORDER, counts):
+        parts.append("%s %d %s" % (SEVERITY_ICONS[severity], count, severity))
+    return "**Severity summary:** " + " · ".join(parts)
+
+
+def assert_identity(body):
+    """Marker and structural checks that apply to every scenario."""
+    checks = [check("marker present", MARKER in body)]
+
+    count = marker_count(body)
+    checks.append(
+        check(
+            "marker appears exactly once",
+            count == 1,
+            "found %d occurrences" % count,
+            failure_class="action",
+        )
+    )
+
+    if has_legacy_marker(body):
+        checks.append(
+            check(
+                "legacy marker absent",
+                False,
+                "legacy marker %r is still published" % LEGACY_MARKER,
+                failure_class="action",
+            )
+        )
+
+    leaked = find_secrets(body)
+    checks.append(
+        check(
+            "no secrets in comment",
+            not leaked,
+            "leaked: %s" % ", ".join(leaked[:3]) if leaked else "",
+            failure_class="action",
+        )
+    )
+    return checks
+
+
+def assert_valid_review(body, expected_counts=None, expected_files=None,
+                        min_findings=None, expect_severity=None):
+    """Assert a valid AI review with optional expectations.
+
+    ``expected_counts`` is the severity tuple the renderer must have emitted.
+    ``expect_severity`` requires at least one finding of that severity, which
+    is what the CRITICAL/HIGH/MEDIUM scenarios check.
+    ``expected_files`` restricts ``file:line`` references to the fixture's own
+    files, so a finding pointing somewhere unexpected is reported rather than
+    silently accepted.
+    """
+    checks = list(assert_identity(body))
+
+    checks.append(
+        check(
+            "valid review branch",
+            not is_non_ai_report(body),
+            "expected the AI review branch, got a non-AI branch (provider failure, "
+            "empty diff or oversized diff)",
+            failure_class="action",
+        )
+    )
+
+    counts = parse_severity_counts(body)
+    if expected_counts is None:
+        checks.append(
+            check("severity summary present", counts is not None,
+                  "no severity summary line found")
+        )
+    elif counts is None:
+        checks.append(
+            check(
+                "severity summary matches fixture",
+                False,
+                "expected %s but no severity summary line was rendered"
+                % expected_severity_line(expected_counts),
+                failure_class="action",
+            )
+        )
+    else:
+        checks.append(
+            check(
+                "severity summary matches fixture",
+                counts == tuple(expected_counts),
+                "expected %s, got %s"
+                % (expected_severity_line(expected_counts),
+                   expected_severity_line(counts)),
+                failure_class="llm_variance",
+            )
+        )
+
+    total = sum(counts) if counts is not None else None
+    if min_findings is not None:
+        checks.append(
+            check(
+                "at least %d finding(s)" % min_findings,
+                total is not None and total >= min_findings,
+                "rendered %s findings" % (total if total is not None else "an unknown number of"),
+                failure_class="llm_variance",
+            )
+        )
+
+    if expect_severity is not None:
+        present = expect_severity in parse_finding_severities(body)
+        checks.append(
+            check(
+                "at least one %s finding" % expect_severity,
+                present,
+                "rendered severities: %s"
+                % (parse_finding_severities(body) or "none"),
+                failure_class="llm_variance",
+            )
+        )
+
+    if expected_files is not None:
+        locations = parse_locations(body)
+        unexpected = [loc for loc in locations if loc[0] not in expected_files]
+        checks.append(
+            check(
+                "finding locations within fixture",
+                not unexpected,
+                "unexpected: %s" % unexpected[:3] if unexpected else "",
+                failure_class="llm_variance",
+            )
+        )
+
+    rendered = parse_findings_count(body)
+    if counts is not None:
+        if rendered is None:
+            checks.append(check("finding count line present", counts == (0, 0, 0, 0)))
+        else:
+            checks.append(
+                check(
+                    "finding count line agrees with severity summary",
+                    rendered == sum(counts),
+                    "line says %d, severity summary totals %d" % (rendered, sum(counts)),
+                    failure_class="action",
+                )
+            )
+    return checks
+
+
+def assert_clean_review(body):
+    """The ``clean`` scenario: zero findings across all four severities."""
+    checks = assert_valid_review(body, expected_counts=(0, 0, 0, 0))
+    checks.append(
+        check(
+            "renders no-findings notice",
+            NO_FINDINGS_RE.search(body) is not None,
+            "expected '**No findings.**' or '**Sin hallazgos.**'",
+            failure_class="llm_variance",
+        )
+    )
+    checks.append(
+        check(
+            "renders no per-finding severity labels",
+            not parse_finding_severities(body),
+            "rendered: %s" % parse_finding_severities(body),
+            failure_class="llm_variance",
+        )
+    )
+    return checks
+
+
+def assert_provider_failure(body):
+    """The ``provider-failure`` scenario: a controlled, non-blocking error."""
+    checks = list(assert_identity(body))
+    checks.append(check("provider failure branch", is_provider_failure(body)))
+    checks.append(
+        check(
+            "states review is non-blocking",
+            "non-blocking" in body,
+            "expected the comment to say the review is non-blocking",
+            failure_class="action",
+        )
+    )
+    checks.append(
+        check(
+            "publishes no findings",
+            parse_severity_counts(body) is None
+            and not parse_finding_severities(body),
+            "a provider failure must not render findings",
+            failure_class="action",
+        )
+    )
+    return checks
+
+
+def classify_failure(checks):
+    """Pick the single most informative failure class from failing checks."""
+    priority = ("action", "provider", "llm_variance")
+    failing = [item for item in checks if not item.ok and item.failure_class]
+    for name in priority:
+        for item in failing:
+            if item.failure_class == name:
+                return item.failure_class
+    return ""

@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""E2E suite for the Code Review Agent.
+
+Runs the scenarios defined in ``e2e/README.md`` against real pull requests
+opened from the ``qa/e2e-*`` fixture branches in this repository.
+
+    ./e2e/run-suite                      # every scenario, against main
+    ./e2e/run-suite --scenario clean     # one scenario
+    ./e2e/run-suite --ref v1.0.0-rc.1    # validate a release candidate
+
+The exit code is non-zero when any scenario does not pass, so the suite can
+gate a release.
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+import threading
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "lib"))
+
+import gh_client  # noqa: E402
+import scenarios as scenario_registry  # noqa: E402
+from runner import run_scenario  # noqa: E402
+
+DEFAULT_REPO = "boghus/code-review-agent"
+DEFAULT_REF = "main"
+MAX_CONCURRENT = 3
+
+
+def parse_args(argv):
+    parser = argparse.ArgumentParser(
+        prog="run-suite",
+        description="Run the Code Review Agent E2E suite against real pull requests.",
+    )
+    parser.add_argument("--repo", default=DEFAULT_REPO,
+                        help="owner/name of the repository under test")
+    parser.add_argument("--ref", default=DEFAULT_REF,
+                        help="base ref the fixture pull requests target")
+    parser.add_argument("--scenario", action="append", dest="scenarios", metavar="NAME",
+                        help="run only this scenario; repeatable")
+    parser.add_argument("--timeout", type=int, default=480,
+                        help="seconds to wait for the action to comment")
+    parser.add_argument("--concurrency", type=int, default=MAX_CONCURRENT,
+                        help="scenarios to run in parallel")
+    parser.add_argument("--artifacts-dir",
+                        default=os.path.join(HERE, "artifacts"),
+                        help="where to store published comments on failure")
+    parser.add_argument("--list", action="store_true",
+                        help="list the scenarios and exit")
+    parser.add_argument("--json", dest="as_json", action="store_true",
+                        help="emit machine-readable results")
+    return parser.parse_args(argv)
+
+
+def preflight(repo, scenarios):
+    """Fail fast on the things that would otherwise waste a full run.
+
+    Only the branches backing the selected scenarios are required, so
+    ``--scenario clean`` does not require the other five fixtures to exist.
+    """
+    problems = []
+    try:
+        gh_client.gh_json(["api", "repos/%s" % repo])
+    except gh_client.GhError as error:
+        problems.append("cannot reach %s: %s" % (repo, error))
+
+    _, _, code = gh_client._run(["gh", "auth", "status"], check=False)
+    if code != 0:
+        problems.append("gh is not authenticated; run `gh auth login`")
+
+    for scenario in scenarios:
+        _, _, code = gh_client._run(
+            ["git", "ls-remote", "--exit-code", "--heads",
+             "https://github.com/%s.git" % repo, scenario.branch],
+            check=False,
+        )
+        if code != 0:
+            problems.append(
+                "missing fixture branch %s; see e2e/README.md for how to create it"
+                % scenario.branch
+            )
+    return problems
+
+
+def describe_failure(result):
+    """Explain a failure in terms of what to do next."""
+    if result.error and not result.failed_checks:
+        return "  ! %s" % result.error.splitlines()[0]
+
+    lines = []
+    for check in result.failed_checks:
+        suffix = " (%s)" % check.failure_class if check.failure_class else ""
+        lines.append("  x %s%s: %s" % (check.name, suffix, check.detail))
+
+    if result.failure_class == "action":
+        lines.append("  -> action defect: re-running is unlikely to change this")
+    elif result.failure_class == "llm_variance":
+        lines.append("  -> model variance: the report is well formed but lacks the finding")
+    elif result.failure_class == "provider":
+        lines.append("  -> provider outage, not a product defect")
+    if result.artifact:
+        lines.append("  -> artifact: %s" % result.artifact)
+    return "\n".join(lines)
+
+
+def main(argv):
+    args = parse_args(argv)
+
+    if args.list:
+        for scenario in scenario_registry.SCENARIOS:
+            print("%-18s %s  (%s)" % (scenario.name, scenario.title, scenario.branch))
+        return 0
+
+    try:
+        selected = scenario_registry.get(args.scenarios)
+    except ValueError as error:
+        print("error: %s" % error, file=sys.stderr)
+        return 2
+
+    print("Code Review Agent E2E")
+    print("Repo: %s" % args.repo)
+    print("Ref: %s" % args.ref)
+    print()
+
+    problems = preflight(args.repo, selected)
+    if problems:
+        print("preflight failed:", file=sys.stderr)
+        for problem in problems:
+            print("  - %s" % problem, file=sys.stderr)
+        return 2
+
+    results = []
+    results_lock = threading.Lock()
+    pending = list(selected)
+
+    def worker():
+        while True:
+            with results_lock:
+                if not pending:
+                    return
+                scenario = pending.pop(0)
+            print("-> %s" % scenario.name)
+            result = run_scenario(
+                scenario, args.repo, args.ref, args.ref,
+                timeout=args.timeout, artifacts_dir=args.artifacts_dir,
+            )
+            with results_lock:
+                results.append(result)
+            symbol = "✓" if result.passed else "✗"
+            print("  %s %s (%ds)" % (symbol, result.status, int(result.elapsed)))
+            if not result.passed:
+                print(describe_failure(result))
+
+    worker_count = max(1, min(args.concurrency, len(selected)))
+    threads = [threading.Thread(target=worker) for _ in range(worker_count)]
+    started = time.time()
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    ordered = sorted(results, key=lambda item: [s.name for s in selected].index(item.scenario.name))
+    passed = sum(1 for result in ordered if result.passed)
+
+    print()
+    if args.as_json:
+        import json
+        print(json.dumps([
+            {
+                "scenario": result.scenario.name,
+                "status": result.status,
+                "failure_class": result.failure_class,
+                "pr": result.pr_number,
+                "comment_id": result.comment_id,
+                "artifact": result.artifact,
+                "error": result.error,
+            }
+            for result in ordered
+        ], indent=2))
+    else:
+        for result in ordered:
+            symbol = "✓" if result.passed else "✗"
+            detail = "" if result.passed else "  %s" % result.failure_class
+            print("%s %s%s" % (symbol, result.scenario.name, detail))
+        print()
+        print("%d/%d PASS" % (passed, len(ordered)))
+        print("Ref: %s" % args.ref)
+        print("Elapsed: %ds" % int(time.time() - started))
+
+    return 0 if passed == len(ordered) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
