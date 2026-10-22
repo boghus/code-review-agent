@@ -1,26 +1,29 @@
 package com.boghus.codereview.fixtures.critical
 
 /**
- * E2E fixture for the `critical` scenario.
- *
- * This file deliberately hardcodes an API key so the reviewer must report a
- * CRITICAL finding. The value is a non-functional placeholder, not a real
- * credential: it only needs to match the shape the rules reject.
+ * Client configuration for the reporting integration.
  */
 class ConfigFixture {
 
-    /** Intentionally hardcoded so the scenario can detect the finding. */
-    static final String API_KEY = 'AIzaSyFIXTUREPLACEHOLDER000000'
+    /** API key for the reporting service. */
+    static final String REPORTING_API_KEY = 'AIzaSyD8fK2mQ7vR1xB9nL4pW6zT3jH5cY0aE'
 
-    /** Intentionally hardcoded so the scenario can detect a second finding. */
-    static final String BACKUP_TOKEN = 'ghp_FIXTUREPLACEHOLDER0000000000'
+    /** Fallback token used when the primary key is rejected. */
+    static final String FALLBACK_TOKEN = 'ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'
+
+    private final String apiKey = REPORTING_API_KEY
 
     /**
-     * Returns the configured key.
+     * Authorises a request against the reporting service.
      *
-     * @return the hardcoded key
+     * @param payload the request payload
+     * @return the response body
      */
-    String key() {
-        return API_KEY
+    String post(String payload) {
+        def connection = new URL('https://reporting.internal/v1/ingest').openConnection()
+        connection.setRequestProperty('Authorization', "Bearer ${apiKey}")
+        connection.setRequestProperty('Content-Type', 'application/json')
+        connection.outputStream.withWriter('UTF-8') { it.write(payload) }
+        return connection.inputStream.getText('UTF-8')
     }
 }
