@@ -15,18 +15,22 @@ La suite reutiliza esta especificación como referencia común. Cada release pue
 
 ## Matriz base
 
-| Scenario | Fixture RC1 | Trigger inicial | Trigger adicional | Resultado esperado |
-|---|---|---|---|---|
-| `critical` | Fixture intencional CRITICAL sobre `boghus/msp_energia`; debe quedar fijado en un commit cuando el fixture se materialice | `opened` | — | Comentario CRA con al menos un finding CRITICAL |
-| `high` | Fixture intencional HIGH sobre `boghus/msp_energia`; debe quedar fijado en un commit cuando el fixture se materialice | `opened` | — | Comentario CRA con al menos un finding HIGH |
-| `medium` | Fixture intencional MEDIUM sobre `boghus/msp_energia`; debe quedar fijado en un commit cuando el fixture se materialice | `opened` | — | Comentario CRA con al menos un finding MEDIUM |
-| `clean` | PR limpio sobre `boghus/msp_energia`; reglas: `.github/code_review_rules.md` | `opened` | — | Comentario CRA con 0 findings y `APPROVE` |
-| `idempotency` | PR de prueba sobre `boghus/msp_energia`; reglas: `.github/code_review_rules.md` | `opened` | `synchronize` | Un solo comentario CRA; se actualiza conservando el ID |
-| `provider-failure` | Configuración inválida del modelo/provider en `boghus/msp_energia` (caso histórico: PR #63) | `opened` | — | Comentario de error controlado, sin findings |
+Los fixtures viven en **este mismo repositorio**, como ramas `qa/e2e-<scenario>` abiertas contra `main`. Cada rama es el "commit fijo" que exige el contrato: materializa un único cambio deliberado, y `qa-merge-guard` garantiza que nunca se mergee, de modo que el escenario sigue disponible para releases futuros.
 
-El consumidor RC1 previsto por la orquestación de release es `boghus/msp_energia`, mediante `.github/workflows/code-review-agent.yml`. El workflow acepta `opened`, `synchronize` y `reopened`.
+| Scenario | Fixture | Rama | Trigger inicial | Trigger adicional | Resultado esperado |
+|---|---|---|---|---|---|
+| `critical` | Cambio con un secreto/API key hardcodeado | `qa/e2e-critical` | `opened` | — | Comentario CRA con al menos un finding CRITICAL |
+| `high` | Cambio con un bug funcional evidente | `qa/e2e-high` | `opened` | — | Comentario CRA con al menos un finding HIGH |
+| `medium` | Cambio con duplicación o ausencia de test | `qa/e2e-medium` | `opened` | — | Comentario CRA con al menos un finding MEDIUM |
+| `clean` | Cambio trivial y limpio | `qa/e2e-clean` | `opened` | — | Comentario CRA con 0 findings en las cuatro severidades |
+| `idempotency` | Cambio trivial; luego commit vacío | `qa/e2e-idempotency` | `opened` | `synchronize` | Un solo comentario CRA; se actualiza conservando el ID |
+| `provider-failure` | Modelo inválido (`invalid-provider-model`) | `qa/e2e-provider-failure` | `opened` | — | Comentario de error controlado, sin findings |
 
-**Nota sobre los fixtures de severidad:** no existe en el historial consultado un commit RC1 reproducible que permita afirmar honestamente un fixture específico para CRITICAL, HIGH y MEDIUM. No se inventan commits, archivos ni líneas. Esos tres fixtures deben materializarse antes de que el harness pueda ejecutarlos como escenarios deterministas.
+Las reglas usadas en cada review provienen de `.github/code_review_rules.md` en el **base ref** (`main`), porque `TrustedRulesLoader` resuelve las reglas desde el base ref del PR y nunca desde el diff.
+
+El perfil `qa` de `Examples CI` ejecuta el self-review y omite build y tests, de modo que cada fixture paga únicamente el costo de la llamada al provider. El merge está bloqueado por `qa-merge-guard`.
+
+**Sobre la severidad esperada:** un finding de severidad concreta no está garantizado por el prompt, solo por el contenido del fixture. Por eso el harness valida la severidad contra una severidad mínima esperada y clasifica un fallo como varianza del modelo cuando el reporte es válido y estructurado pero no incluye el finding esperado. Los fixtures CRITICAL/HIGH/MEDIUM deben materializarse antes de que el harness pueda ejecutarlos como escenarios deterministas.
 
 Los escenarios forman el **mínimo contractual común**. Una versión concreta puede agregar escenarios adicionales cuando introduzca comportamiento nuevo que requiera validación E2E.
 
@@ -53,8 +57,10 @@ Para `clean` se valida:
 
 - exactamente 0 findings;
 - CRITICAL, HIGH, MEDIUM y LOW en cero;
-- resultado `APPROVE`;
-- marker presente.
+- marker presente;
+- un único comentario CRA.
+
+La ausencia de `APPROVE` es intencional y no es un hueco del harness: el producto no emite un veredicto estructurado. Ver "Veredicto `APPROVE` / `CHANGES_REQUESTED`" más abajo.
 
 ## Escenarios base
 
@@ -94,13 +100,13 @@ Para `clean` se valida:
 
 ### `clean`
 
-**Fixture:** cambio pequeño y deliberadamente limpio respecto de `.github/code_review_rules.md` en `boghus/msp_energia`.
+**Fixture:** cambio trivial y deliberadamente limpio, en la rama `qa/e2e-clean`.
 
 **Trigger:** `pull_request.opened`
 
-**PASS:** el review se publica, conserva el marker, reporta cero findings en todas las severidades y tiene resultado `APPROVE`.
+**PASS:** el review se publica, conserva el marker, existe un único comentario CRA y reporta cero findings en las cuatro severidades (`CRITICAL 0 · HIGH 0 · MEDIUM 0 · LOW 0`).
 
-**FAIL:** no existe comentario, aparecen findings contra el contrato del fixture, el resultado no es `APPROVE` o se publican múltiples comentarios CRA.
+**FAIL:** no existe comentario, aparecen findings contra el contrato del fixture o se publican múltiples comentarios CRA.
 
 > 0 findings significa que el reviewer no reportó problemas bajo el contrato configurado; no significa que el código esté libre de bugs.
 
@@ -108,7 +114,7 @@ Para `clean` se valida:
 
 Comprueba que un PR tenga un solo comentario del Code Review Agent.
 
-**Fixture:** PR de prueba en `boghus/msp_energia`, usando las reglas de `.github/code_review_rules.md`.
+**Fixture:** cambio trivial en la rama `qa/e2e-idempotency`, usando las reglas de `.github/code_review_rules.md`.
 
 **Triggers:**
 
@@ -138,7 +144,7 @@ Comprueba que un PR tenga un solo comentario del Code Review Agent.
 
 Cubre un fallo del provider/modelo y la configuración inválida del provider.
 
-**Fixture:** configuración deliberadamente inválida. Existe un caso histórico reproducible en `boghus/msp_energia` (PR #63), donde el modelo fue configurado como `invalid-provider-model`.
+**Fixture:** configuración deliberadamente inválida en la rama `qa/e2e-provider-failure`, siguiendo el caso histórico de `boghus/msp_energia` (PR #63), donde el modelo fue configurado como `invalid-provider-model`. El escenario se materializa en este repositorio para no depender de un PR externo.
 
 **Trigger:** `pull_request.opened`
 
@@ -171,11 +177,11 @@ trigger
 expected publication state
 ```
 
-Para RC1, el repositorio consumidor previsto es `boghus/msp_energia` y las reglas actuales están en `.github/code_review_rules.md`.
+El repositorio consumidor de los fixtures es **este repositorio**. Las ramas `qa/e2e-<scenario>` se abren contra `main` y las reglas aplicadas son las de `.github/code_review_rules.md` de ese base ref.
 
 Las reglas utilizadas durante el review deben provenir del **base ref** del PR. Un cambio de reglas dentro del PR no debe modificar las reglas confiables usadas para ese mismo review.
 
-Los fixtures CRITICAL/HIGH/MEDIUM requieren un commit fijo antes de considerarse completamente reproducibles. El harness no debe seleccionar automáticamente un cambio arbitrario para satisfacer una severidad.
+Los fixtures CRITICAL/HIGH/MEDIUM son ramas fijas y por definición reproducibles. El harness no debe seleccionar automáticamente un cambio arbitrario para satisfacer una severidad.
 
 ## Assertions deterministas vs. LLM
 
@@ -192,9 +198,10 @@ Sí forman parte del PASS/FAIL:
 - cantidad de findings;
 - estructura del reporte;
 - archivo/línea cuando sea determinista;
-- resultado `APPROVE` o `CHANGES_REQUESTED` cuando forme parte del escenario;
 - comportamiento ante error del provider;
 - ausencia de secretos.
+
+Los conteos de severidad son la assertion central porque provienen del renderer y no del modelo: `ReviewResponseMarkdownRenderer` emite la línea `**Severity summary:** 🔴 N CRITICAL · 🟠 N HIGH · 🟡 N MEDIUM · 🔵 N LOW` a partir de `findings.size()`, y emite `Found **N finding(s)**` con el mismo origen. El harness parsea esa línea a una tupla de enteros y compara enteros, nunca prosa.
 
 ### No deterministas
 
@@ -206,6 +213,18 @@ No se comparan literalmente:
 - orden de frases;
 - redacción de títulos sin contrato explícito;
 - cualquier párrafo narrativo generado por el modelo.
+
+### Veredicto `APPROVE` / `CHANGES_REQUESTED`
+
+Estas cadenas **no son asercionables** y el harness no debe exigirlas.
+
+El producto no emite un veredicto estructurado. No existe un campo `conclusion` en `ReviewResponse`, ni el renderer lo produce, y la Action publica un *comment* de issue en lugar de un *review* de pull request, así que tampoco existe un campo `state` de GitHub que leer.
+
+La única fuente de esas palabras es `.github/code_review_rules.md`, que se le envía al modelo como instrucción ("Begin with a summary containing severity counts and an APPROVE / CHANGES_REQUESTED verdict"). Cuando aparecen en el reporte es porque el modelo las incluyó por voluntad propia dentro del campo `summary`, es decir dentro de texto no determinista.
+
+Exigirlas convertiría un escenario en flaky sin aportar señal: el modelo puede redactar el veredicto de tres maneras distintas, o no incluirlo, sin que el comportamiento de la Action haya cambiado. Por eso `clean` se valida exclusivamente por cero findings en las cuatro severidades, y los escenarios con findings por severidad y cantidad.
+
+Si en el futuro se requiere un veredicto, debe agregarse como campo de primer nivel en el contrato de review y renderizarse de forma determinista, y recién entonces pasa a ser asercionable.
 
 ## Evolución por release
 
