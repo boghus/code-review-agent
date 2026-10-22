@@ -281,6 +281,60 @@ def test_ai_heading_constant():
     return ok
 
 
+def test_extra_findings_are_tolerated():
+    """A planted CRITICAL plus another real finding must still pass.
+
+    The reviewer legitimately flagged a missing HTTP timeout in the fixture
+    alongside the hardcoded key. Pinning the exact tuple would fail a correct
+    review, so the severity scenarios assert a lower bound per severity.
+    """
+    body = render([
+        finding("CRITICAL", "Claves de API embebidas",
+                "e2e/fixtures/critical/ConfigFixture.groovy", 9,
+                description="Credenciales en el codigo fuente",
+                impact="Riesgo de exposicion", recommendation="Usar variables de entorno"),
+        finding("MEDIUM", "Ausencia de timeouts",
+                "e2e/fixtures/critical/ConfigFixture.groovy", 23,
+                description="Sin connectTimeout ni readTimeout"),
+    ], summary="Dos hallazgos.", spanish=True)
+
+    ok = report(assert_valid_review(
+        body,
+        min_counts=(1, 0, 0, 0),
+        expected_files={"e2e/fixtures/critical/ConfigFixture.groovy"},
+        min_findings=1,
+        expect_severity="CRITICAL",
+    ))
+
+    strict = assert_valid_review(body, expected_counts=(1, 0, 0, 0))
+    strict_failed = not all(c.ok for c in strict)
+    print("%s exact-tuple mode would reject the extra finding" % ("PASS" if strict_failed else "FAIL"))
+    return ok and strict_failed
+
+
+def test_location_regex_ignores_prose_urls():
+    """A URL in the prose must not be parsed as a file:line location."""
+    body = render([
+        finding("MEDIUM", "Falta timeout",
+                "e2e/fixtures/critical/ConfigFixture.groovy", 23,
+                description="La conexion usa https://reporting.internal/v1/ingest "
+                            "sin connectTimeout"),
+    ], summary="Un hallazgo.", spanish=True)
+
+    locations = parse_locations(body)
+    ok = locations == [("e2e/fixtures/critical/ConfigFixture.groovy", 23)]
+    print("%s prose URL not parsed as a location (%s)" % ("PASS" if ok else "FAIL", locations))
+    return ok
+
+
+def test_missing_expected_severity_fails():
+    body = render([finding("LOW", "Solo estilo", "a.groovy", 1)])
+    checks = assert_valid_review(body, min_counts=(1, 0, 0, 0), expect_severity="CRITICAL")
+    ok = not all(c.ok for c in checks) and classify_failure(checks) == "llm_variance"
+    print("%s missing CRITICAL classifies as llm_variance" % ("PASS" if ok else "FAIL"))
+    return ok
+
+
 def main():
     case("clean en", test_clean_english)
     case("clean es", test_clean_spanish)
@@ -297,6 +351,9 @@ def main():
     case("fixture secret", test_fixture_secret_does_not_break_own_assertion)
     case("failure classification", test_classify_failure)
     case("heading constant", test_ai_heading_constant)
+    case("extra findings tolerated", test_extra_findings_are_tolerated)
+    case("prose URL not a location", test_location_regex_ignores_prose_urls)
+    case("missing severity fails", test_missing_expected_severity_fails)
 
     print()
     passed = sum(1 for _, ok in RESULTS if ok)

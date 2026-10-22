@@ -128,6 +128,60 @@ def push_empty_commit(repo, branch, message):
     _run(["git", "push", "origin", "HEAD:%s" % branch])
 
 
+def head_sha(repo, branch):
+    """Current head commit of a branch."""
+    result = gh_json(["api", "repos/%s/branches/%s" % (repo, branch)])
+    return result["commit"]["sha"]
+
+
+def workflow_runs_for_sha(repo, sha):
+    """Recent workflow runs for a commit, newest first."""
+    return gh_json([
+        "run", "list", "--repo", repo, "--commit", sha,
+        "--limit", "20", "--json", "databaseId,name,status,conclusion,headSha,event",
+    ])
+
+
+def wait_for_ci_run(repo, sha, timeout=900, log=None, poll=15):
+    """Wait until the CI run for a commit finishes, then return it.
+
+    Waiting only for a comment is not enough: a pull request can carry a stale
+    comment from the previous run, so the harness would read the old result and
+    report it as the current one. This blocks on the run for the exact head
+    commit that is under test.
+
+    Returns ``(run, elapsed_seconds)`` where ``run`` is the Examples CI run, or
+    None when the timeout elapses with no run started.
+    """
+    workflow_name = "Examples CI"
+    deadline = time.time() + timeout
+    started = time.time()
+    seen = None
+
+    while True:
+        runs = workflow_runs_for_sha(repo, sha)
+        target = None
+        for run in runs:
+            if run.get("name") == workflow_name:
+                target = run
+                break
+        seen = target or seen
+
+        if target is not None:
+            if target.get("status") == "completed":
+                return target, time.time() - started
+        elif time.time() >= deadline:
+            return None, time.time() - started
+
+        if time.time() >= deadline:
+            return seen, time.time() - started
+
+        if log:
+            state = (target or {}).get("status", "not started")
+            log("      Examples CI %s (%ds elapsed)" % (state, int(time.time() - started)))
+        time.sleep(poll)
+
+
 def wait_for_review(repo, number, timeout=480, initial_delay=5, max_delay=30,
                     log=None):
     """Poll until the action publishes exactly one CRA comment.

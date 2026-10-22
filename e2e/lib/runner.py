@@ -76,6 +76,20 @@ def _execute(scenario, repo, base_branch, timeout, log):
         pr_number, created = gh_client.ensure_pr(repo, scenario, base_branch)
         log("  %s pull request #%s" % ("created" if created else "reused", pr_number))
 
+        # Block on the workflow for the current head commit before reading any
+        # comment. A pull request keeps the comment from its previous run, so
+        # reading first would grade a stale result.
+        sha = gh_client.head_sha(repo, scenario.branch)
+        run, run_elapsed = gh_client.wait_for_ci_run(repo, sha, timeout=timeout, log=log)
+        if run is None:
+            log("  no Examples CI run started for %s" % sha[:7])
+        elif run.get("conclusion") not in ("success", None):
+            # A failed run is not automatically a suite failure: the
+            # provider-failure scenario fails its run on purpose, and the
+            # qa-merge-guard job always exits non-zero for qa branches.
+            log("  Examples CI concluded %s after %ds"
+                % (run.get("conclusion"), int(run_elapsed)))
+
         comment, wait_elapsed = gh_client.wait_for_review(repo, pr_number,
                                                           timeout=timeout, log=log)
         body = comment.get("body") or ""
@@ -88,6 +102,10 @@ def _execute(scenario, repo, base_branch, timeout, log):
                 repo, scenario.branch,
                 "[e2e] trigger synchronize for %s" % scenario.name,
             )
+            # Wait for the second run before checking that the comment was
+            # updated, otherwise the previous body would be graded again.
+            second_sha = gh_client.head_sha(repo, scenario.branch)
+            gh_client.wait_for_ci_run(repo, second_sha, timeout=timeout, log=log)
             comment, update_elapsed = gh_client.wait_for_update(
                 repo, pr_number, comment_id,
                 previous_updated_at=comment.get("updated_at") or "",

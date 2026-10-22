@@ -52,8 +52,15 @@ FINDING_SEVERITY_RE = re.compile(
     r"(" + "|".join(SEVERITY_ICONS.values()) + r")\s*\*\*\s*(CRITICAL|HIGH|MEDIUM|LOW)\s+—"
 )
 
-# Location block, e.g. "`src/Foo.groovy:42`"
-LOCATION_RE = re.compile(r"`([^`\n:]+):(\d+)`")
+# Location block, e.g. "`src/Foo.groovy:42`". The renderer emits the location
+# as a standalone backticked token on its own line, so anchoring to a line that
+# contains only that token avoids matching prose such as
+# "`https://reporting.internal/v1/ingest`", which would otherwise be read as a
+# file named "https" at some line.
+LOCATION_RE = re.compile(
+    r"^`([^`\n]*?):(\d+)`\s*$",
+    re.MULTILINE,
+)
 
 # Patterns that must never survive into a published comment.
 SECRET_PATTERNS = (
@@ -213,15 +220,23 @@ def assert_identity(body):
 
 
 def assert_valid_review(body, expected_counts=None, expected_files=None,
-                        min_findings=None, expect_severity=None):
+                        min_findings=None, expect_severity=None,
+                        min_counts=None):
     """Assert a valid AI review with optional expectations.
 
-    ``expected_counts`` is the severity tuple the renderer must have emitted.
-    ``expect_severity`` requires at least one finding of that severity, which
-    is what the CRITICAL/HIGH/MEDIUM scenarios check.
+    ``expected_counts`` is the exact severity tuple the renderer must have
+    emitted. Use it only where the fixture pins the outcome, such as ``clean``
+    and ``idempotency``, where a single extra finding is a real regression.
+
+    ``min_counts`` asserts a lower bound per severity instead. Use it for the
+    severity scenarios: a reviewer that finds the planted secret *and* another
+    legitimate problem has passed, so pinning the exact tuple would fail a
+    correct review. ``critical`` expecting ``(1, 0, 0, 0)`` would fail because
+    the model also flagged a missing HTTP timeout, which is a true finding.
+
+    ``expect_severity`` requires at least one finding of that severity.
     ``expected_files`` restricts ``file:line`` references to the fixture's own
-    files, so a finding pointing somewhere unexpected is reported rather than
-    silently accepted.
+    files.
     """
     checks = list(assert_identity(body))
 
@@ -236,32 +251,39 @@ def assert_valid_review(body, expected_counts=None, expected_files=None,
     )
 
     counts = parse_severity_counts(body)
-    if expected_counts is None:
-        checks.append(
-            check("severity summary present", counts is not None,
-                  "no severity summary line found")
-        )
-    elif counts is None:
+    if counts is None:
         checks.append(
             check(
-                "severity summary matches fixture",
+                "severity summary present",
                 False,
-                "expected %s but no severity summary line was rendered"
-                % expected_severity_line(expected_counts),
+                "no severity summary line was rendered",
                 failure_class="action",
             )
         )
     else:
-        checks.append(
-            check(
-                "severity summary matches fixture",
-                counts == tuple(expected_counts),
-                "expected %s, got %s"
-                % (expected_severity_line(expected_counts),
-                   expected_severity_line(counts)),
-                failure_class="llm_variance",
+        if expected_counts is not None:
+            checks.append(
+                check(
+                    "severity summary matches fixture",
+                    counts == tuple(expected_counts),
+                    "expected %s, got %s"
+                    % (expected_severity_line(expected_counts),
+                       expected_severity_line(counts)),
+                    failure_class="llm_variance",
+                )
             )
-        )
+        if min_counts is not None:
+            for index, severity in enumerate(SEVERITY_ORDER):
+                needed = min_counts[index]
+                if needed and counts[index] < needed:
+                    checks.append(
+                        check(
+                            "at least %d %s finding(s)" % (needed, severity),
+                            False,
+                            "rendered %d" % counts[index],
+                            failure_class="llm_variance",
+                        )
+                    )
 
     total = sum(counts) if counts is not None else None
     if min_findings is not None:

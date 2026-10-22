@@ -19,7 +19,7 @@ class Scenario(object):
     def __init__(self, name, title, expected_counts=None, expected_files=None,
                  min_findings=None, expect_severity=None, expect_clean=False,
                  expect_provider_failure=False, requires_synchronize=False,
-                 timeout=None, extra_assert=None):
+                 timeout=None, min_counts=None, extra_assert=None):
         self.name = name
         self.title = title
         self.expected_counts = expected_counts
@@ -32,6 +32,7 @@ class Scenario(object):
         # Per-scenario override of the suite timeout, for scenarios that are
         # expected to be slower than the rest.
         self.timeout = timeout
+        self.min_counts = min_counts
         self.extra_assert = extra_assert
 
     @property
@@ -50,6 +51,7 @@ class Scenario(object):
             expected_files=self.expected_files,
             min_findings=self.min_findings,
             expect_severity=self.expect_severity,
+            min_counts=self.min_counts,
         )
         if self.extra_assert is not None:
             checks.extend(self.extra_assert(body))
@@ -69,15 +71,15 @@ SCENARIOS = [
     Scenario(
         "critical",
         "hardcoded secret yields a CRITICAL finding",
-        expected_counts=(1, 0, 0, 0),
-        expected_files={_fixture_file("critical/Config.groovy")},
+        min_counts=(1, 0, 0, 0),
+        expected_files={_fixture_file("critical/ConfigFixture.groovy")},
         min_findings=1,
         expect_severity="CRITICAL",
     ),
     Scenario(
         "high",
         "functional bug yields a HIGH finding",
-        expected_counts=(0, 1, 0, 0),
+        min_counts=(0, 1, 0, 0),
         expected_files={_fixture_file("high/Counter.groovy")},
         min_findings=1,
         expect_severity="HIGH",
@@ -85,7 +87,7 @@ SCENARIOS = [
     Scenario(
         "medium",
         "duplication without tests yields a MEDIUM finding",
-        expected_counts=(0, 0, 1, 0),
+        min_counts=(0, 0, 1, 0),
         expected_files={_fixture_file("medium/Formatter.groovy")},
         min_findings=1,
         expect_severity="MEDIUM",
