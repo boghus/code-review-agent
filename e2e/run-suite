@@ -44,6 +44,8 @@ def parse_args(argv):
                         help="run only this scenario; repeatable")
     parser.add_argument("--timeout", type=int, default=480,
                         help="seconds to wait for the action to comment")
+    parser.add_argument("--max-total", type=int, default=3600,
+                        help="seconds after which the whole run is abandoned")
     parser.add_argument("--concurrency", type=int, default=MAX_CONCURRENT,
                         help="scenarios to run in parallel")
     parser.add_argument("--artifacts-dir",

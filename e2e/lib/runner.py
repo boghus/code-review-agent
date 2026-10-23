@@ -90,18 +90,33 @@ def _execute(scenario, repo, base_branch, timeout, log):
         # reading first would grade a stale result.
         sha = gh_client.head_sha(repo, scenario.branch)
         run, run_elapsed = gh_client.wait_for_ci_run(repo, sha, timeout=timeout, log=log)
+
         if run is None:
-            log("  no Examples CI run started for %s" % sha[:7])
-        else:
-            if run.get("conclusion") not in ("success", None):
-                # A failed run is not automatically a suite failure: the
-                # provider-failure scenario fails its run on purpose, and the
-                # qa-merge-guard job always exits non-zero for qa branches.
-                log("  Examples CI concluded %s after %ds"
-                    % (run.get("conclusion"), int(run_elapsed)))
-            # Only accept a comment published by this run, otherwise the
-            # previous run's comment is graded as the current result.
-            not_before = run.get("startedAt") or run.get("createdAt")
+            # No run for this commit yet. Trigger one instead of failing: an
+            # empty commit on the fixture branch is enough to start the
+            # workflow, and it leaves the reviewed diff untouched.
+            log("  no CI run for %s, triggering one" % sha[:7])
+            gh_client.push_empty_commit(
+                repo, scenario.branch,
+                "[e2e] trigger review for %s" % scenario.name,
+            )
+            sha = gh_client.head_sha(repo, scenario.branch)
+            run, run_elapsed = gh_client.wait_for_ci_run(repo, sha, timeout=timeout, log=log)
+            if run is None:
+                raise gh_client.GhError(
+                    "no CI run started for %s after triggering one" % sha[:7]
+                )
+
+        if run.get("conclusion") not in ("success", None):
+            # A failed run is not automatically a suite failure: the
+            # provider-failure scenario fails its run on purpose, and the
+            # qa-merge-guard job always exits non-zero for qa branches.
+            log("  Examples CI concluded %s after %ds"
+                % (run.get("conclusion"), int(run_elapsed)))
+
+        # Only accept a comment published by this run, otherwise the previous
+        # run's comment is graded as the current result.
+        not_before = run.get("startedAt") or run.get("createdAt") or ""
 
         comment, wait_elapsed = gh_client.wait_for_review(
             repo, pr_number, timeout=timeout, log=log, not_before=not_before

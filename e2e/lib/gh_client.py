@@ -6,6 +6,7 @@ absent from some environments, so JSON parsing happens here with ``json``.
 """
 
 import json
+import os
 import subprocess
 import time
 
@@ -18,18 +19,45 @@ class GhError(RuntimeError):
     pass
 
 
-def _run(args, check=True):
+GH_CALL_TIMEOUT = 120
+
+
+def _run(args, check=True, timeout=GH_CALL_TIMEOUT):
+    """Run a command, never blocking indefinitely.
+
+    ``gh`` can block for a long time when it decides to prompt, for example
+    when the token expired and it wants to open a browser. Without a timeout
+    a single call can stall the suite for hours, so every call is bounded.
+    """
     process = subprocess.Popen(
         args,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,
+        stdin=subprocess.DEVNULL,
+        env=_gh_env(),
     )
-    stdout, stderr = process.communicate()
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.communicate()
+        raise GhError("%s timed out after %ds" % (" ".join(args[:2]), timeout))
     if check and process.returncode != 0:
         raise GhError("%s failed (%d): %s" % (" ".join(args[:2]), process.returncode,
                                                stderr.strip()))
     return stdout, stderr, process.returncode
+
+
+def _gh_env():
+    """Environment that keeps gh from trying to interact with the user."""
+    env = dict(os.environ)
+    # gh asks for confirmation before destructive calls such as deleting a
+    # ref. The harness only deletes refs it created, but answering yes
+    # automatically keeps it from waiting on stdin.
+    env.setdefault("GH_PROMPT_DISABLED", "1")
+    env.setdefault("GH_NO_UPDATE_NOTIFIER", "1")
+    return env
 
 
 def gh(args, check=True):
@@ -116,16 +144,34 @@ def ensure_pr(repo, scenario, base_branch):
 
 
 def push_empty_commit(repo, branch, message):
-    """Push an empty commit to trigger ``pull_request.synchronize``.
+    """Push an empty commit to a branch through the GitHub API.
 
-    The idempotency scenario needs a second run of the action against the same
-    pull request. An empty commit produces a real new head SHA without
-    changing the reviewed diff, so the second review is comparable.
+    Used to trigger ``pull_request.synchronize`` and to start a run when the
+    branch has no CI run yet. The commit is created from the API rather than
+    from the local checkout so the harness never switches branches or alters
+    the working tree, which matters because scenarios run in parallel and
+    share one local repository.
+
+    Returns the new head SHA.
     """
-    _run(["git", "fetch", "origin", branch])
-    _run(["git", "checkout", "-B", branch, "origin/%s" % branch])
-    _run(["git", "commit", "--allow-empty", "-m", message])
-    _run(["git", "push", "origin", "HEAD:%s" % branch])
+    head = head_sha(repo, branch)
+    # The tree parameter takes a tree SHA, not a commit SHA, so read the tree
+    # of the current head and reuse it for the empty commit.
+    tree = gh_json(["api", "repos/%s/git/commits/%s" % (repo, head)])["tree"]["sha"]
+    commit = gh_json([
+        "api", "--method", "POST",
+        "repos/%s/git/commits" % repo,
+        "-f", "message=%s" % message,
+        "-f", "tree=%s" % tree,
+        "-f", "parents[]=%s" % head,
+    ])
+    new_sha = commit["sha"]
+    gh_json([
+        "api", "--method", "PATCH",
+        "repos/%s/git/refs/heads/%s" % (repo, branch),
+        "-f", "sha=%s" % new_sha,
+    ])
+    return new_sha
 
 
 def head_sha(repo, branch):
@@ -163,7 +209,10 @@ def wait_for_ci_run(repo, sha, timeout=900, log=None, poll=15):
         runs = workflow_runs_for_sha(repo, sha)
         target = None
         for run in runs:
-            if run.get("name") == workflow_name:
+            # Match on the name and on the commit. The list is filtered by
+            # commit already, but the branch also triggers the workflow on
+            # push, and both runs can appear for the same commit.
+            if run.get("name") == workflow_name and run.get("headSha") == sha:
                 target = run
                 break
         seen = target or seen
