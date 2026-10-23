@@ -10,7 +10,10 @@ import gh_client
 import scenarios as scenario_registry
 
 PROVIDER_FAILURE_CLASS = "provider"
-PROVIDER_RETRY_DELAY = 120
+# A provider outage covers both an exhausted quota and a saturated model
+# answering 503. Both are transient, and the provider itself says to retry
+# later, so the wait between attempts is generous.
+PROVIDER_RETRY_DELAY = 180
 
 
 def _provider_message(body):
@@ -138,10 +141,11 @@ def _execute(scenario, repo, base_branch, timeout, log):
                 )
 
         if run.get("conclusion") not in ("success", None):
-            # A failed run is not automatically a suite failure: the
-            # provider-failure scenario fails its run on purpose, and the
-            # qa-merge-guard job always exits non-zero for qa branches.
-            log("  Examples CI concluded %s after %ds"
+            # The verdict comes from the comment, never from the run status:
+            # a qa branch always fails its QA merge guard by design, and the
+            # provider-failure scenario fails its run on purpose.
+            log("  Examples CI concluded %s after %ds (the verdict comes from "
+                "the comment, not from this status)"
                 % (run.get("conclusion"), int(run_elapsed)))
 
         # Only accept a comment published by this run, otherwise the previous
