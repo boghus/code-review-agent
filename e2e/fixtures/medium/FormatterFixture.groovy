@@ -1,44 +1,46 @@
 package com.boghus.codereview.fixtures.medium
 
 /**
- * Report formatting helpers.
+ * Summary writer for the reporting integration.
  */
 class FormatterFixture {
 
     /**
-     * Formats a value as a percentage.
+     * Builds the summary text for a report.
      *
-     * @param ratio the ratio to format, between 0 and 1
-     * @return the percentage
+     * @param title the report title
+     * @param items the items to include
+     * @param total the total to divide by
+     * @return the summary text
+     */
+    String buildSummary(String title, List<String> items, int total) {
+        StringBuilder summary = new StringBuilder()
+        summary.append(title).append('\n')
+
+        int index = 0
+        for (String item : items) {
+            index = index + 1
+            summary.append(index).append('. ').append(item).append('\n')
+        }
+
+        if (total > 0) {
+            summary.append('Total: ').append(items.size() / total).append('\n')
+        } else {
+            summary.append('Total: unavailable\n')
+        }
+
+        summary.append('Generated at ').append(System.currentTimeMillis()).append('\n')
+
+        return summary.toString()
+    }
+
+    /**
+     * Formats a ratio as a percentage.
+     *
+     * @param ratio the ratio to format
+     * @return the formatted percentage
      */
     String percent(double ratio) {
         return "${Math.round(ratio * 100)}%"
-    }
-
-    /**
-     * Formats a value as a percentage.
-     *
-     * @param ratio the ratio to format, between 0 and 1
-     * @return the percentage
-     */
-    String percentage(double ratio) {
-        return "${Math.round(ratio * 100)}%"
-    }
-
-    /**
-     * Formats a ratio for display.
-     *
-     * Duplicates the rounding used by {@code percent} without sharing it, and
-     * silently returns {@code null} when the ratio is missing instead of
-     * handling it.
-     *
-     * @param ratio the ratio to format
-     * @return the formatted ratio
-     */
-    String ratio(Double ratio) {
-        if (ratio == null) {
-            return null
-        }
-        return "${Math.round(ratio * 100)} %"
     }
 }
