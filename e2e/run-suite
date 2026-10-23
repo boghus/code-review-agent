@@ -46,6 +46,9 @@ def parse_args(argv):
                         help="seconds to wait for the action to comment")
     parser.add_argument("--max-total", type=int, default=3600,
                         help="seconds after which the whole run is abandoned")
+    parser.add_argument("--provider-retries", type=int, default=1,
+                        help="retries for a scenario that failed because the provider "
+                             "was unavailable. Model variance is never retried.")
     parser.add_argument("--concurrency", type=int, default=MAX_CONCURRENT,
                         help="scenarios to run in parallel")
     parser.add_argument("--artifacts-dir",
@@ -151,6 +154,7 @@ def main(argv):
             result = run_scenario(
                 scenario, args.repo, args.ref, args.ref,
                 timeout=args.timeout, artifacts_dir=args.artifacts_dir,
+                provider_retries=args.provider_retries,
             )
             with results_lock:
                 results.append(result)

@@ -10,6 +10,7 @@ import gh_client
 import scenarios as scenario_registry
 
 PROVIDER_FAILURE_CLASS = "provider"
+PROVIDER_RETRY_DELAY = 120
 
 
 def _provider_message(body):
@@ -62,18 +63,47 @@ def _write_artifact(base_dir, scenario, body, ref):
 
 
 def run_scenario(scenario, repo, base_branch, ref, timeout=480, artifacts_dir=None,
-                 log=print):
+                 log=print, provider_retries=1):
+    """Run one scenario, retrying only on a provider outage.
+
+    A provider outage is infrastructure, not a product defect, and it resolves
+    on its own once the quota window resets. Model variance does not: a
+    finding that the model missed is a real signal about the model, so it is
+    never retried.
+    """
     # A scenario-specific timeout wins over the suite default.
     effective_timeout = scenario.timeout or timeout
-    started = time.time()
-    result = _execute(scenario, repo, base_branch, effective_timeout, log)
+    attempts = provider_retries + 1
 
-    if result.status != "PASS" and artifacts_dir:
-        path = _write_artifact(artifacts_dir, scenario, result.body, ref)
-        if path:
-            result.artifact = path
+    for attempt in range(attempts):
+        started = time.time()
+        result = _execute(scenario, repo, base_branch, effective_timeout, log)
+        result.elapsed = time.time() - started
 
-    result.elapsed = time.time() - started
+        if result.status != "PASS" and artifacts_dir:
+            path = _write_artifact(artifacts_dir, scenario, result.body, ref)
+            if path:
+                result.artifact = path
+
+        if result.passed or result.failure_class != "provider":
+            return result
+
+        if attempt + 1 >= attempts:
+            return result
+
+        log("  provider unavailable, retrying in %ds (%d/%d)"
+            % (PROVIDER_RETRY_DELAY, attempt + 1, attempts - 1))
+        time.sleep(PROVIDER_RETRY_DELAY)
+        # A retry needs a fresh run, since the previous one hit the outage.
+        try:
+            gh_client.push_empty_commit(
+                repo, scenario.branch,
+                "[e2e] retry %s after provider outage" % scenario.name,
+            )
+        except gh_client.GhError as error:
+            log("  could not trigger a retry: %s" % error)
+            return result
+
     return result
 
 
