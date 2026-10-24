@@ -6,15 +6,16 @@ import static org.assertj.core.api.Assertions.assertThat
 import static org.assertj.core.api.Assertions.assertThatThrownBy
 
 class AiProviderTypeTest {
-
     @Test
     void 'resolves provider from configuration name'() {
         assertThat(AiProviderType.fromConfigName('gemini')).isEqualTo(AiProviderType.GEMINI)
+        assertThat(AiProviderType.fromConfigName('openrouter')).isEqualTo(AiProviderType.OPENROUTER)
     }
 
     @Test
     void 'resolves provider names case insensitively and trims whitespace'() {
         assertThat(AiProviderType.fromConfigName(' GEMINI ')).isEqualTo(AiProviderType.GEMINI)
+        assertThat(AiProviderType.fromConfigName(' OpenRouter ')).isEqualTo(AiProviderType.OPENROUTER)
     }
 
     @Test
@@ -30,5 +31,6 @@ class AiProviderTypeTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining('openai')
             .hasMessageContaining('gemini')
+            .hasMessageContaining('openrouter')
     }
 }
