@@ -366,11 +366,35 @@ def test_fixture_content_is_plain_text():
     import scenarios as scenario_registry
 
     scenario = scenario_registry.SCENARIOS_BY_NAME["clean"]
-    content, path = _fixture_content(scenario)
+    content, path, _sha = _fixture_content(scenario)
     ok = content is not None and "package " in content and "class " in content
     ok = ok and not content.strip().startswith("cGFja2FnZ")
     print("%s fixture content is plain source (%s)"
           % ("PASS" if ok else "FAIL", path))
+    return ok
+
+
+def test_every_scenario_pins_its_fixture():
+    """Every scenario must pin a fixture commit.
+
+    A branch can move, so a fixture resolved from a branch would let an
+    accidental push change the scenario of a release. A commit SHA cannot
+    move, so it is what pins the fixture, and a scenario without one cannot
+    run deterministically.
+    """
+    import scenarios as scenario_registry
+
+    unpinned = [name for name in scenario_registry.SCENARIO_NAMES
+                if not scenario_registry.FIXTURE_SHAS.get(name)]
+    ok = not unpinned
+    print("%s every scenario pins a fixture commit (%s)"
+          % ("PASS" if ok else "FAIL", unpinned or "all pinned"))
+
+    bad = [name for name, sha in scenario_registry.FIXTURE_SHAS.items()
+           if sha and len(sha) != 40]
+    ok = ok and not bad
+    print("%s every pinned SHA is a full commit SHA (%s)"
+          % ("PASS" if ok else "FAIL", bad or "all full"))
     return ok
 
 
@@ -395,6 +419,7 @@ def main():
     case("missing severity fails", test_missing_expected_severity_fails)
     case("provider reclassified", test_provider_failure_beats_structural_failures)
     case("fixture is plain text", test_fixture_content_is_plain_text)
+    case("fixtures are pinned", test_every_scenario_pins_its_fixture)
 
     print()
     passed = sum(1 for _, ok in RESULTS if ok)

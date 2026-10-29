@@ -77,22 +77,42 @@ FIXTURES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fi
                             "fixtures")
 
 
-def _fixture_content(scenario):
-    """Read a fixture from the harness directory.
+def _fixture_content(scenario, repo=None):
+    """Read a fixture at its pinned commit.
 
     The fixtures live with the harness rather than on the default branch, so
     the shipped action does not carry test files. The harness recreates the
     fixture branches from them on every run, which is what lets the fixture
     pull requests be closed without breaking the suite.
+
+    When the scenario pins a commit SHA, the file is read from that commit
+    rather than from the working tree. A branch can move, so reading from it
+    would let an accidental push change the scenario under test; a commit
+    cannot move.
+
+    Returns ``(content, path, sha)``. The content is None when the fixture
+    has no file or its SHA is not pinned yet.
     """
     relative = FIXTURE_FILES.get(scenario.name)
+    sha = scenario_registry.FIXTURE_SHAS.get(scenario.name)
+
     if relative is None:
-        return None, None
-    path = os.path.join(FIXTURES_DIR, relative)
-    if not os.path.exists(path):
-        return None, relative
-    with open(path) as handle:
-        return handle.read(), "e2e/fixtures/%s" % relative
+        # The provider-failure scenario is a workflow configuration change
+        # rather than a file fixture, so it has no content to apply. Its
+        # branch is recreated from the source ref like the others.
+        return None, None, sha
+
+    path = "e2e/fixtures/%s" % relative
+    if sha and repo:
+        content = gh_client.read_file_at_ref(repo, sha, path)
+        if content is not None:
+            return content, path, sha
+
+    local = os.path.join(FIXTURES_DIR, relative)
+    if not os.path.exists(local):
+        return None, path, sha
+    with open(local) as handle:
+        return handle.read(), path, sha
 
 
 def recreate_fixtures(repo, scenarios, source_ref, log=print):
@@ -107,7 +127,7 @@ def recreate_fixtures(repo, scenarios, source_ref, log=print):
     """
     recreated = []
     for scenario in scenarios:
-        content, fixture_path = _fixture_content(scenario)
+        content, fixture_path, _sha = _fixture_content(scenario, repo)
         if content is None:
             log("  %s: no fixture file, leaving the branch untouched" % scenario.name)
             continue
@@ -171,12 +191,23 @@ def _execute(scenario, repo, base_branch, timeout, log):
     body = None
 
     try:
-        content, fixture_path = _fixture_content(scenario)
+        content, fixture_path, fixture_sha = _fixture_content(scenario, repo)
+        if not fixture_sha:
+            # The fixture has no pinned commit, so the scenario cannot run
+            # deterministically yet.
+            return Result(
+                scenario, "SKIPPED", pr_number=None,
+                failure_class="unpinned",
+                error="the fixture for %s has no pinned commit SHA, so the "
+                      "scenario cannot run deterministically yet" % scenario.name,
+            )
         pr_number, created = gh_client.ensure_pr(
             repo, scenario, base_branch,
             fixture_content=content, fixture_path=fixture_path, log=log,
         )
         log("  %s pull request #%s" % ("created" if created else "reused", pr_number))
+        if fixture_sha:
+            log("  fixture pinned at %s" % fixture_sha[:7])
 
         # Block on the workflow for the current head commit before reading any
         # comment. A pull request keeps the comment from its previous run, so

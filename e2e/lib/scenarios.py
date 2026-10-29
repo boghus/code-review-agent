@@ -14,6 +14,25 @@ from assertions import (
 BASE_BRANCH = "main"
 BRANCH_PREFIX = "qa/e2e-"
 
+# The commit that introduced each fixture. A branch can move, so resolving the
+# fixture to a branch would let an accidental push change the scenario of a
+# release. A commit SHA cannot move, so it is what pins the fixture.
+#
+# A value of None means the fixture has not been materialised yet. The harness
+# then reports the scenario as skipped instead of pretending it passed.
+#
+# The five file fixtures were introduced together. The provider-failure
+# fixture is a workflow configuration change, so it is pinned to the commit
+# that set the invalid model.
+FIXTURE_SHAS = {
+    "clean": "312594b5190a7e74883cf90e6d2047cc2ff4c900",
+    "critical": "312594b5190a7e74883cf90e6d2047cc2ff4c900",
+    "high": "312594b5190a7e74883cf90e6d2047cc2ff4c900",
+    "medium": "312594b5190a7e74883cf90e6d2047cc2ff4c900",
+    "idempotency": "312594b5190a7e74883cf90e6d2047cc2ff4c900",
+    "provider-failure": "3c7c5774b93c618d1a32648cf29ec6277d198d5a",
+}
+
 
 class Scenario(object):
     def __init__(self, name, title, expected_counts=None, expected_files=None,

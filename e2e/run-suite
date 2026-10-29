@@ -88,17 +88,26 @@ def preflight(repo, scenarios):
         problems.append("gh is not authenticated; run `gh auth login`")
 
     for scenario in scenarios:
-        content, path = _fixture_content(scenario)
-        if content is None:
+        content, path, sha = _fixture_content(scenario, repo)
+        if not sha:
             problems.append(
-                "no fixture file for scenario %s (expected under %s)"
-                % (scenario.name, FIXTURES_DIR)
+                "scenario %s has no pinned fixture commit SHA; it cannot run "
+                "deterministically yet" % scenario.name
+            )
+            continue
+        if content is None and path is not None:
+            problems.append(
+                "the fixture %s of scenario %s is not readable at %s"
+                % (path, scenario.name, sha[:7])
             )
     return problems
 
 
 def describe_failure(result):
     """Explain a failure in terms of what to do next."""
+    if result.status == "SKIPPED":
+        return "  - %s" % (result.error or "scenario not available")
+
     if result.error and not result.failed_checks:
         return "  ! %s" % result.error.splitlines()[0]
 
@@ -177,7 +186,9 @@ def main(argv):
             )
             with results_lock:
                 results.append(result)
-            symbol = "✓" if result.passed else "✗"
+            symbol = {"PASS": "✓", "SKIPPED": "-", "FAIL": "✗", "ERROR": "!"}.get(
+                result.status, "?"
+            )
             log("  %s %s (%ds)" % (symbol, result.status, int(result.elapsed)))
             if not result.passed:
                 log(describe_failure(result))
@@ -210,7 +221,9 @@ def main(argv):
         ], indent=2))
     else:
         for result in ordered:
-            symbol = "✓" if result.passed else "✗"
+            symbol = {"PASS": "✓", "SKIPPED": "-", "FAIL": "✗", "ERROR": "!"}.get(
+                result.status, "?"
+            )
             detail = "" if result.passed else "  %s" % result.failure_class
             log("%s %s%s" % (symbol, result.scenario.name, detail))
         log()
@@ -218,7 +231,14 @@ def main(argv):
         log("Ref: %s" % args.ref)
         log("Elapsed: %ds" % int(time.time() - started))
 
-    return 0 if passed == len(ordered) else 1
+    # A skipped scenario is not a failure, but it is also not a pass: the
+    # suite cannot vouch for a scenario it did not run.
+    failed = [result for result in ordered if result.status in ("FAIL", "ERROR")]
+    skipped = [result for result in ordered if result.status == "SKIPPED"]
+    if skipped:
+        log("  %d scenario(s) skipped: %s"
+            % (len(skipped), ", ".join(r.scenario.name for r in skipped)))
+    return 0 if not failed else 1
 
 
 if __name__ == "__main__":
