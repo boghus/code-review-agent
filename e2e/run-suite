@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(HERE, "lib"))
 
 import gh_client  # noqa: E402
 import scenarios as scenario_registry  # noqa: E402
-from runner import run_scenario  # noqa: E402
+from runner import recreate_fixtures, run_scenario  # noqa: E402
 
 DEFAULT_REPO = "boghus/code-review-agent"
 DEFAULT_REF = "main"
@@ -40,6 +40,15 @@ def parse_args(argv):
                         help="owner/name of the repository under test")
     parser.add_argument("--ref", default=DEFAULT_REF,
                         help="base ref the fixture pull requests target")
+    parser.add_argument("--action-ref", default=None,
+                        help="reference of the action under test, for example a tag or "
+                             "a SHA. The fixture branches are recreated from this "
+                             "reference so the action that runs is the one under test. "
+                             "The ref under test is what makes the run evidence for a "
+                             "release candidate.")
+    parser.add_argument("--recreate-fixtures", action="store_true",
+                        help="recreate the qa/e2e-* branches from --action-ref, "
+                             "replacing their current content")
     parser.add_argument("--scenario", action="append", dest="scenarios", metavar="NAME",
                         help="run only this scenario; repeatable")
     parser.add_argument("--timeout", type=int, default=480,
@@ -113,13 +122,18 @@ def describe_failure(result):
 
 
 def main(argv):
+    # Flush as we go: the suite waits on long polls, and buffered output
+    # would leave the run looking silent while it is actually working.
+    def log(message=""):
+        print(message, flush=True)
+
     args = parse_args(argv)
 
     if args.list:
         for scenario in scenario_registry.SCENARIOS:
             timeout = scenario.timeout or args.timeout
-            print("%-18s %s  (%s, timeout %ds)"
-                  % (scenario.name, scenario.title, scenario.branch, timeout))
+            log("%-18s %s  (%s, timeout %ds)"
+                % (scenario.name, scenario.title, scenario.branch, timeout))
         return 0
 
     try:
@@ -128,10 +142,10 @@ def main(argv):
         print("error: %s" % error, file=sys.stderr)
         return 2
 
-    print("Code Review Agent E2E")
-    print("Repo: %s" % args.repo)
-    print("Ref: %s" % args.ref)
-    print()
+    log("Code Review Agent E2E")
+    log("Repo: %s" % args.repo)
+    log("Ref: %s" % args.ref)
+    log()
 
     problems = preflight(args.repo, selected)
     if problems:
@@ -139,6 +153,14 @@ def main(argv):
         for problem in problems:
             print("  - %s" % problem, file=sys.stderr)
         return 2
+
+    if args.recreate_fixtures:
+        if not args.action_ref:
+            print("error: --recreate-fixtures requires --action-ref", file=sys.stderr)
+            return 2
+        log("Recreating the fixture branches from %s" % args.action_ref)
+        recreate_fixtures(args.repo, selected, args.action_ref)
+        log()
 
     results = []
     results_lock = threading.Lock()
@@ -150,7 +172,7 @@ def main(argv):
                 if not pending:
                     return
                 scenario = pending.pop(0)
-            print("-> %s" % scenario.name)
+            log("-> %s" % scenario.name)
             result = run_scenario(
                 scenario, args.repo, args.ref, args.ref,
                 timeout=args.timeout, artifacts_dir=args.artifacts_dir,
@@ -159,9 +181,9 @@ def main(argv):
             with results_lock:
                 results.append(result)
             symbol = "✓" if result.passed else "✗"
-            print("  %s %s (%ds)" % (symbol, result.status, int(result.elapsed)))
+            log("  %s %s (%ds)" % (symbol, result.status, int(result.elapsed)))
             if not result.passed:
-                print(describe_failure(result))
+                log(describe_failure(result))
 
     worker_count = max(1, min(args.concurrency, len(selected)))
     threads = [threading.Thread(target=worker) for _ in range(worker_count)]
@@ -174,7 +196,7 @@ def main(argv):
     ordered = sorted(results, key=lambda item: [s.name for s in selected].index(item.scenario.name))
     passed = sum(1 for result in ordered if result.passed)
 
-    print()
+    log()
     if args.as_json:
         import json
         print(json.dumps([
@@ -193,11 +215,11 @@ def main(argv):
         for result in ordered:
             symbol = "✓" if result.passed else "✗"
             detail = "" if result.passed else "  %s" % result.failure_class
-            print("%s %s%s" % (symbol, result.scenario.name, detail))
-        print()
-        print("%d/%d PASS" % (passed, len(ordered)))
-        print("Ref: %s" % args.ref)
-        print("Elapsed: %ds" % int(time.time() - started))
+            log("%s %s%s" % (symbol, result.scenario.name, detail))
+        log()
+        log("%d/%d PASS" % (passed, len(ordered)))
+        log("Ref: %s" % args.ref)
+        log("Elapsed: %ds" % int(time.time() - started))
 
     return 0 if passed == len(ordered) else 1
 

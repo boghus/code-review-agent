@@ -65,6 +65,62 @@ def _write_artifact(base_dir, scenario, body, ref):
     return path
 
 
+FIXTURE_FILES = {
+    "clean": "clean/CleanFixture.groovy",
+    "critical": "critical/ConfigFixture.groovy",
+    "high": "high/CounterFixture.groovy",
+    "medium": "medium/FormatterFixture.groovy",
+    "idempotency": "idempotency/IdempotencyFixture.groovy",
+}
+
+FIXTURES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "fixtures")
+
+
+def _fixture_content(scenario):
+    """Read a fixture from the harness directory.
+
+    The fixtures live with the harness rather than on the default branch, so
+    the shipped action does not carry test files. The harness recreates the
+    fixture branches from them on every run, which is what lets the fixture
+    pull requests be closed without breaking the suite.
+    """
+    relative = FIXTURE_FILES.get(scenario.name)
+    if relative is None:
+        return None, None
+    path = os.path.join(FIXTURES_DIR, relative)
+    if not os.path.exists(path):
+        return None, relative
+    with open(path) as handle:
+        return handle.read(), "e2e/fixtures/%s" % relative
+
+
+def recreate_fixtures(repo, scenarios, source_ref, log=print):
+    """Rebuild the fixture branches from the reference under test.
+
+    Each branch is created from ``source_ref`` and receives the fixture file,
+    so the code the reviewer executes comes from the reference under test and
+    the diff it reviews is exactly the fixture change.
+
+    The provider-failure scenario has no source fixture: it is a workflow
+    configuration change, so it is left alone.
+    """
+    recreated = []
+    for scenario in scenarios:
+        content, fixture_path = _fixture_content(scenario)
+        if content is None:
+            log("  %s: no fixture file, leaving the branch untouched" % scenario.name)
+            continue
+        sha = gh_client.apply_fixture_commit(
+            repo, scenario.branch, source_ref, fixture_path, content,
+            "[e2e] recreate %s fixture from %s" % (scenario.name, source_ref),
+        )
+        recreated.append((scenario.name, sha[:7]))
+        log("  %s: fixture branch rebuilt from %s (%s)"
+            % (scenario.name, source_ref, sha[:7]))
+    return recreated
+
+
 def run_scenario(scenario, repo, base_branch, ref, timeout=480, artifacts_dir=None,
                  log=print, provider_retries=1):
     """Run one scenario, retrying only on a provider outage.
@@ -115,7 +171,11 @@ def _execute(scenario, repo, base_branch, timeout, log):
     body = None
 
     try:
-        pr_number, created = gh_client.ensure_pr(repo, scenario, base_branch)
+        content, fixture_path = _fixture_content(scenario)
+        pr_number, created = gh_client.ensure_pr(
+            repo, scenario, base_branch,
+            fixture_content=content, fixture_path=fixture_path, log=log,
+        )
         log("  %s pull request #%s" % ("created" if created else "reused", pr_number))
 
         # Block on the workflow for the current head commit before reading any

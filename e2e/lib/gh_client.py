@@ -5,6 +5,7 @@ authentication, pagination and TLS. ``jq`` is deliberately not required: it is
 absent from some environments, so JSON parsing happens here with ``json``.
 """
 
+import base64
 import json
 import os
 import subprocess
@@ -122,15 +123,31 @@ def create_pr(repo, head_branch, base_branch, title, body):
     return prs[0]["number"] if prs else None
 
 
-def ensure_pr(repo, scenario, base_branch):
-    """Reuse the scenario's pull request, creating it when absent.
+def ensure_pr(repo, scenario, base_branch, fixture_content=None, fixture_path=None,
+              log=None):
+    """Reuse the scenario's pull request, creating the branch and PR when absent.
 
-    Reuse matters: re-running the suite against a different ref must not
-    scatter new branches and pull requests across the repository.
+    Reuse matters: re-running the suite must not scatter new branches and pull
+    requests across the repository. When the branch is missing it is recreated
+    from ``base_branch`` with the fixture file applied, so the suite works even
+    after the fixture pull requests were closed.
+
+    Returns ``(number, created)``.
     """
     existing = open_pr_for_branch(repo, scenario.branch, base_branch)
     if existing:
         return existing["number"], False
+
+    if fixture_content is not None and fixture_path is not None:
+        apply_fixture_commit(
+            repo, scenario.branch, base_branch, fixture_path, fixture_content,
+            "[e2e] create %s fixture" % scenario.name,
+        )
+        if log:
+            log("  %s: fixture branch recreated from %s" % (scenario.name, base_branch))
+    else:
+        create_branch_from(repo, scenario.branch, base_branch)
+
     body = (
         "Automated E2E fixture for the Code Review Agent.\n\n"
         "Scenario: `%s` -- %s\n\n"
@@ -178,6 +195,111 @@ def head_sha(repo, branch):
     """Current head commit of a branch."""
     result = gh_json(["api", "repos/%s/branches/%s" % (repo, branch)])
     return result["commit"]["sha"]
+
+
+def branch_exists(repo, branch):
+    """True when the branch exists in the repository."""
+    _, _, code = _run(
+        ["git", "ls-remote", "--exit-code", "--heads",
+         "https://github.com/%s.git" % repo, branch],
+        check=False,
+    )
+    return code == 0
+
+
+def create_branch_from(repo, branch, source_ref):
+    """Create a branch pointing at ``source_ref`` when it does not exist yet.
+
+    The fixture branches carry the change under test, so they are created from
+    the reference being validated rather than from the default branch. That is
+    what makes a run against a tag or a release candidate meaningful.
+    """
+    if branch_exists(repo, branch):
+        return False
+    source = resolve_sha(repo, source_ref)
+    gh_json([
+        "api", "--method", "POST",
+        "repos/%s/git/refs" % repo,
+        "-f", "ref=refs/heads/%s" % branch,
+        "-f", "sha=%s" % source,
+    ])
+    return True
+
+
+def read_file_at_ref(repo, ref, path):
+    """Read a file as it exists at a given ref, or None when absent."""
+    stdout, _, code = _run(
+        ["gh", "api", "repos/%s/contents/%s?ref=%s" % (repo, path, ref)],
+        check=False,
+    )
+    if code != 0:
+        return None
+    try:
+        payload = json.loads(stdout)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict) or "content" not in payload:
+        return None
+    return base64.b64decode(payload["content"]).decode("utf-8")
+
+
+def resolve_sha(repo, ref):
+    """Resolve a branch, tag or SHA to a full commit SHA.
+
+    The git database API only accepts full SHAs, so a branch or a tag name has
+    to be resolved through the branches or tags endpoints first.
+    """
+    if len(ref) == 40 and all(c in "0123456789abcdef" for c in ref.lower()):
+        return ref
+    try:
+        return head_sha(repo, ref)
+    except (GhError, KeyError, ValueError):
+        pass
+    result = gh_json(["api", "repos/%s/tags/%s" % (repo, ref)])
+    if isinstance(result, list):
+        result = result[0]
+    return result["commit"]["sha"]
+
+
+def commit_tree_sha(repo, sha):
+    """Tree SHA of a commit."""
+    return gh_json(["api", "repos/%s/git/commits/%s" % (repo, sha)])["tree"]["sha"]
+
+
+def apply_fixture_commit(repo, branch, source_ref, fixture_path, content,
+                          message):
+    """Apply the fixture change to a branch and push it.
+
+    The branch is created from ``source_ref`` and then receives the fixture
+    file, so the diff the reviewer sees is exactly the fixture change and
+    nothing else.
+    """
+    create_branch_from(repo, branch, source_ref)
+
+    head = head_sha(repo, branch)
+    base_tree = commit_tree_sha(repo, head)
+    tree = gh_json([
+        "api", "--method", "POST",
+        "repos/%s/git/trees" % repo,
+        "-f", "base_tree=%s" % base_tree,
+        "-f", "tree[][path]=%s" % fixture_path,
+        "-f", "tree[][mode]=100644",
+        "-f", "tree[][type]=blob",
+        "-f", "tree[][content]=%s" % base64.b64encode(content.encode("utf-8")).decode("ascii"),
+    ])
+    commit = gh_json([
+        "api", "--method", "POST",
+        "repos/%s/git/commits" % repo,
+        "-f", "message=%s" % message,
+        "-f", "tree=%s" % tree["sha"],
+        "-f", "parents[]=%s" % head,
+    ])
+    gh_json([
+        "api", "--method", "PATCH",
+        "repos/%s/git/refs/heads/%s" % (repo, branch),
+        "-f", "sha=%s" % commit["sha"],
+    ])
+    return commit["sha"]
 
 
 def workflow_runs_for_sha(repo, sha):
