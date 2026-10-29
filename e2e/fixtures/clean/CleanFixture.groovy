@@ -1,1 +1,24 @@
-cGFja2FnZSBjb20uYm9naHVzLmNvZGVyZXZpZXcuZml4dHVyZXMuY2xlYW4KCi8qKgogKiBFMkUgZml4dHVyZSBmb3IgdGhlIGBjbGVhbmAgc2NlbmFyaW8uCiAqCiAqIFRoaXMgZmlsZSBpcyBpbnRlbnRpb25hbGx5IHRyaXZpYWwuIFRoZSBzY2VuYXJpbyBhc3NlcnRzIHRoYXQgdGhlIHJldmlld2VyCiAqIHJlcG9ydHMgemVybyBmaW5kaW5ncywgc28gbm90aGluZyBoZXJlIG1heSBsb29rIGxpa2UgYSBkZWZlY3Q6IG5vIHNlY3JldHMsCiAqIG5vIGxvZ2ljIGVycm9ycywgbm8gZHVwbGljYXRpb24gYW5kIG5vIG1pc3NpbmcgdGVzdHMgd29ydGggcmVwb3J0aW5nLgogKi8KY2xhc3MgQ2xlYW5GaXh0dXJlIHsKCiAgICAvKiogRml4ZWQgZ3JlZXRpbmcgdXNlZCBieSB0aGUgZml4dHVyZS4gKi8KICAgIHN0YXRpYyBmaW5hbCBTdHJpbmcgR1JFRVRJTkcgPSAnaGVsbG8nCgogICAgLyoqCiAgICAgKiBSZXR1cm5zIGEgZ3JlZXRpbmcuCiAgICAgKgogICAgICogQHBhcmFtIG5hbWUgdGhlIG5hbWUgdG8gZ3JlZXQKICAgICAqIEByZXR1cm4gdGhlIGdyZWV0aW5nIGZvciB7QGNvZGUgbmFtZX0KICAgICAqLwogICAgU3RyaW5nIGdyZWV0KFN0cmluZyBuYW1lKSB7CiAgICAgICAgcmV0dXJuICIke0dSRUVUSU5HfSwgJHtuYW1lfSIKICAgIH0KfQ==
+package com.boghus.codereview.fixtures.clean
+
+/**
+ * E2E fixture for the `clean` scenario.
+ *
+ * This file is intentionally trivial. The scenario asserts that the reviewer
+ * reports zero findings, so nothing here may look like a defect: no secrets,
+ * no logic errors, no duplication and no missing tests worth reporting.
+ */
+class CleanFixture {
+
+    /** Fixed greeting used by the fixture. */
+    static final String GREETING = 'hello'
+
+    /**
+     * Returns a greeting.
+     *
+     * @param name the name to greet
+     * @return the greeting for {@code name}
+     */
+    String greet(String name) {
+        return "${GREETING}, ${name}"
+    }
+}
