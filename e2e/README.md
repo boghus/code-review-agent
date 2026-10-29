@@ -15,7 +15,9 @@ La suite reutiliza esta especificación como referencia común. Cada release pue
 
 ## Matriz base
 
-Los fixtures viven en **este mismo repositorio**, como ramas `qa/e2e-<scenario>` abiertas contra `main`. Cada rama es el "commit fijo" que exige el contrato: materializa un único cambio deliberado, y `qa-merge-guard` garantiza que nunca se mergee, de modo que el escenario sigue disponible para releases futuros.
+Los fixtures viven en **este mismo repositorio**, como archivos bajo `e2e/fixtures/<scenario>/`. El harness los aplica sobre ramas `qa/e2e-<scenario>` abiertas contra `main`, de modo que cada rama materializa un único cambio deliberado. `qa-merge-guard` garantiza que esas ramas nunca se mergeen.
+
+Las ramas y sus pull requests son artefactos desechables: el harness las recrea en cada corrida a partir de los archivos de fixture y del ref bajo prueba. Por eso el fixture no depende de un pull request abierto y puede validarse contra un tag o un release candidate.
 
 | Scenario | Fixture | Rama | Trigger inicial | Trigger adicional | Resultado esperado |
 |---|---|---|---|---|---|
@@ -181,7 +183,7 @@ El repositorio consumidor de los fixtures es **este repositorio**. Las ramas `qa
 
 Las reglas utilizadas durante el review deben provenir del **base ref** del PR. Un cambio de reglas dentro del PR no debe modificar las reglas confiables usadas para ese mismo review.
 
-Los fixtures CRITICAL/HIGH/MEDIUM son ramas fijas y por definición reproducibles. El harness no debe seleccionar automáticamente un cambio arbitrario para satisfacer una severidad.
+Los fixtures CRITICAL/HIGH/MEDIUM son archivos versionados junto al harness, de modo que son reproducibles por definición. El harness no debe seleccionar automáticamente un cambio arbitrario para satisfacer una severidad.
 
 ## Assertions deterministas vs. LLM
 
@@ -255,6 +257,8 @@ La suite es reproducible cuando:
 
 Esta especificación define **qué debe demostrar la suite**, no dónde deben vivir sus runners o fixtures.
 
-El PR #85 estableció la orquestación de release para `critical`, `high`, `medium`, `clean`, `idempotency` y `provider-failure`. Este documento formaliza el contrato base que debe cumplir cada escenario y que deberá reutilizarse en releases posteriores.
+El **E2E Test Harness (#128)** implementa estos contratos en `e2e/run-suite` y `e2e/lib/`. Consume el contrato sin tener que interpretar qué significa PASS o FAIL: las assertions de cada escenario están en `e2e/lib/assertions.py` y los escenarios en `e2e/lib/scenarios.py`.
 
-El siguiente paso de implementación es el **E2E Test Harness (#128)**, que debe consumir estos contratos sin tener que interpretar qué significa PASS o FAIL.
+La orquestación de release vive en `.github/workflows/release-candidate.yml`, que ejecuta la suite contra un ref concreto y sube los comentarios publicados como artifacts.
+
+Este documento es el **contrato base permanente**: los releases siguientes deben reutilizar esta matriz como baseline, no como una suite exclusiva.
