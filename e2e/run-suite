@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(HERE, "lib"))
 
 import gh_client  # noqa: E402
 import scenarios as scenario_registry  # noqa: E402
-from runner import recreate_fixtures, run_scenario  # noqa: E402
+from runner import FIXTURES_DIR, _fixture_content, recreate_fixtures, run_scenario  # noqa: E402
 
 DEFAULT_REPO = "boghus/code-review-agent"
 DEFAULT_REF = "main"
@@ -73,8 +73,9 @@ def parse_args(argv):
 def preflight(repo, scenarios):
     """Fail fast on the things that would otherwise waste a full run.
 
-    Only the branches backing the selected scenarios are required, so
-    ``--scenario clean`` does not require the other five fixtures to exist.
+    The fixture branches do not have to exist: the harness recreates them from
+    the fixtures it carries, and creates their pull requests on demand. What
+    does have to exist is the fixture file for each scenario.
     """
     problems = []
     try:
@@ -87,15 +88,11 @@ def preflight(repo, scenarios):
         problems.append("gh is not authenticated; run `gh auth login`")
 
     for scenario in scenarios:
-        _, _, code = gh_client._run(
-            ["git", "ls-remote", "--exit-code", "--heads",
-             "https://github.com/%s.git" % repo, scenario.branch],
-            check=False,
-        )
-        if code != 0:
+        content, path = _fixture_content(scenario)
+        if content is None:
             problems.append(
-                "missing fixture branch %s; see e2e/README.md for how to create it"
-                % scenario.branch
+                "no fixture file for scenario %s (expected under %s)"
+                % (scenario.name, FIXTURES_DIR)
             )
     return problems
 

@@ -355,6 +355,25 @@ def test_provider_failure_beats_structural_failures():
     return ok
 
 
+def test_fixture_content_is_plain_text():
+    """The fixture must be applied verbatim, not base64 encoded.
+
+    The git trees endpoint takes the content as plain text. Encoding it, as
+    the contents endpoint requires, silently produced a fixture file that held
+    base64 and no readable source.
+    """
+    from runner import _fixture_content
+    import scenarios as scenario_registry
+
+    scenario = scenario_registry.SCENARIOS_BY_NAME["clean"]
+    content, path = _fixture_content(scenario)
+    ok = content is not None and "package " in content and "class " in content
+    ok = ok and not content.strip().startswith("cGFja2FnZ")
+    print("%s fixture content is plain source (%s)"
+          % ("PASS" if ok else "FAIL", path))
+    return ok
+
+
 def main():
     case("clean en", test_clean_english)
     case("clean es", test_clean_spanish)
@@ -375,6 +394,7 @@ def main():
     case("prose URL not a location", test_location_regex_ignores_prose_urls)
     case("missing severity fails", test_missing_expected_severity_fails)
     case("provider reclassified", test_provider_failure_beats_structural_failures)
+    case("fixture is plain text", test_fixture_content_is_plain_text)
 
     print()
     passed = sum(1 for _, ok in RESULTS if ok)

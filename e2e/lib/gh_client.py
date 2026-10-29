@@ -285,7 +285,9 @@ def apply_fixture_commit(repo, branch, source_ref, fixture_path, content,
         "-f", "tree[][path]=%s" % fixture_path,
         "-f", "tree[][mode]=100644",
         "-f", "tree[][type]=blob",
-        "-f", "tree[][content]=%s" % base64.b64encode(content.encode("utf-8")).decode("ascii"),
+        # The trees endpoint takes the content as plain text. Only the
+        # contents endpoint takes it base64 encoded.
+        "-f", "tree[][content]=%s" % content,
     ])
     commit = gh_json([
         "api", "--method", "POST",
