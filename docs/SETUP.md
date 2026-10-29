@@ -100,3 +100,76 @@ consumer repo. Without this resolution step, every relative path would
 silently be looked up in the wrong directory. The resolution happens once
 in the `Resolve path inputs` step and the absolute values are passed to
 the orchestrator via `CRA_DIFF_PATH` and `CRA_OUTPUT_PATH`.
+
+## Validating a release candidate
+
+The E2E suite in `e2e/` runs the action against real pull requests opened
+from fixture branches, and checks the published comment. It is the evidence
+that a release candidate is ready.
+
+### Running it locally
+
+```bash
+./e2e/run-suite                    # every scenario against main
+./e2e/run-suite --scenario clean   # one scenario
+./e2e/run-suite --list             # the scenarios and their branches
+```
+
+The suite needs the `gh` CLI authenticated with write access to the
+repository, since it creates the fixture pull requests and pushes the empty
+commits that trigger each run.
+
+It exits with a non-zero status when a scenario does not pass, so it can gate
+a release.
+
+The assertions read the published comment, not the state of the workflow run.
+A fixture branch always fails its QA merge guard by design, so the run status
+carries no signal; the comment does.
+
+### Validating a specific reference
+
+To validate a release candidate, recreate the fixture branches from that
+reference and run the suite against them:
+
+```bash
+./e2e/run-suite --action-ref v1.0.0-rc.1 --recreate-fixtures
+```
+
+The fixture branch is rebuilt from the reference under test, so the code the
+reviewer executes is the code of that reference and the diff it reviews is
+exactly the fixture change.
+
+### Running it from Actions
+
+`Release candidate validation` is a `workflow_dispatch` workflow that runs
+the suite against a given reference:
+
+```yaml
+- uses: boghus/code-review-agent/.github/workflows/release-candidate.yml@main
+  with:
+    action_ref: v1.0.0-rc.1
+    scenario: ''      # empty runs every scenario
+    timeout: '480'
+```
+
+It uploads the published comments as artifacts, so a failure can be
+diagnosed after the fact.
+
+### Reading the result
+
+Each scenario reports one of:
+
+| Class | Meaning | Worth retrying |
+|---|---|---|
+| `action` | a structural defect: no comment, two comments, a malformed report | no |
+| `llm_variance` | the report is well formed but does not contain the expected finding | no |
+| `provider` | the action could not reach the provider | yes |
+
+A provider outage is never a product defect, so it is retried once by
+default. Model variance is never retried: a finding the model missed is a
+real signal about the model, and retrying until it appears would hide what
+the suite exists to measure.
+
+The `medium` scenario depends on the model reporting a duplication as a
+maintainability issue. Pure duplication in unused code is arguable, so that
+fixture carries an observable consequence instead.
