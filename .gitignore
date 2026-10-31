@@ -5,3 +5,8 @@ cra-review.md
 .idea/
 *.iml
 .DS_Store
+
+# E2E harness output
+__pycache__/
+*.pyc
+e2e/artifacts/
