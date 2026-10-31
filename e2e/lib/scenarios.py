@@ -25,11 +25,11 @@ BRANCH_PREFIX = "qa/e2e-"
 # fixture is a workflow configuration change, so it is pinned to the commit
 # that set the invalid model.
 FIXTURE_SHAS = {
-    "clean": "312594b5190a7e74883cf90e6d2047cc2ff4c900",
-    "critical": "312594b5190a7e74883cf90e6d2047cc2ff4c900",
-    "high": "312594b5190a7e74883cf90e6d2047cc2ff4c900",
-    "medium": "312594b5190a7e74883cf90e6d2047cc2ff4c900",
-    "idempotency": "312594b5190a7e74883cf90e6d2047cc2ff4c900",
+    "clean": "7dbe4505097c29ccadab787b33ed862857cbcc98",
+    "critical": "7dbe4505097c29ccadab787b33ed862857cbcc98",
+    "high": "7dbe4505097c29ccadab787b33ed862857cbcc98",
+    "medium": "7dbe4505097c29ccadab787b33ed862857cbcc98",
+    "idempotency": "7dbe4505097c29ccadab787b33ed862857cbcc98",
     "provider-failure": "3c7c5774b93c618d1a32648cf29ec6277d198d5a",
 }
 
