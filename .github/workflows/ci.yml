@@ -27,7 +27,7 @@ jobs:
       - id: context
         shell: bash
         env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           profile=development
@@ -36,6 +36,10 @@ jobs:
           # A quoted "qa/*" only matches a branch literally named `qa/*`, so
           # every `qa/...` branch (including the E2E fixtures) was silently
           # sent to the development profile and ran the full build/test suite.
+          #
+          # The profile applies to pull requests. A push to main runs the same
+          # checks, and a push to a qa branch does not trigger this workflow
+          # at all, so it cannot reach the qa profile.
           if [[ "$EVENT_NAME" == "pull_request" && "$HEAD_REF" == qa/* ]]; then
             profile=qa
           fi

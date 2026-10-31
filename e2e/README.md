@@ -23,7 +23,7 @@ Las ramas y sus pull requests son artefactos desechables: el harness las recrea 
 
 Una rama puede moverse y no fija nada: un push accidental sobre `qa/e2e-high` cambiaría el escenario de un release al siguiente sin que nadie lo note. Un archivo dentro de un commit sí es inmutable, porque su contenido está determinado por el SHA.
 
-Por eso cada fixture se identifica por el **SHA del commit que lo introduce**, registrado abajo. El harness resuelve el fixture a ese SHA, no al nombre de la rama, así que una actualización accidental de la rama no altera el escenario. Actualizar un fixture es un acto deliberado: se cambia el SHA registrado en esta tabla junto con el contenido.
+Por eso cada fixture se identifica por el **SHA del commit que lo introduce**, registrado abajo. El harness resuelve el fixture a ese SHA, no al nombre de la rama, así que una actualización accidental de la rama no altera el escenario. Actualizar un fixture es un acto deliberado: se cambia el contenido y, en un commit posterior, el SHA registrado en esta tabla.
 
 | Scenario | Fixture | Archivo | SHA del fixture | Rama | Trigger inicial | Trigger adicional | Resultado esperado |
 |---|---|---|---|---|---|---|---|
@@ -35,6 +35,8 @@ Por eso cada fixture se identifica por el **SHA del commit que lo introduce**, r
 | `provider-failure` | Modelo inválido (`invalid-provider-model`) | `.github/workflows/ci.yml` | `3c7c5774b93c618d1a32648cf29ec6277d198d5a` | `qa/e2e-provider-failure` | `opened` | — | Comentario de error controlado, sin findings |
 
 El SHA registrado es el del commit que introduce el fixture. Actualizar un fixture es un acto deliberado: se cambia el contenido y, en el mismo cambio, el SHA de esta tabla.
+
+El SHA no puede ser el del commit que lo introduce, porque un commit no puede contener su propio hash. El flujo es en dos pasos: primero un commit que introduce o modifica el fixture, y después un commit que actualiza el SHA registrado en esta tabla apuntando a ese commit. El harness resuelve el fixture al SHA registrado, de modo que siempre lee un contenido ya existente en el historial.
 
 Un escenario cuyo fixture todavía no tenga SHA registrado se reporta como **omitido**, no como aprobado. El harness no puede dar por bueno un escenario que no ejecutó.
 
@@ -275,5 +277,7 @@ Esta especificación define **qué debe demostrar la suite**, no dónde deben vi
 El **E2E Test Harness (#128)** implementa estos contratos en `e2e/run-suite` y `e2e/lib/`. Consume el contrato sin tener que interpretar qué significa PASS o FAIL: las assertions de cada escenario están en `e2e/lib/assertions.py` y los escenarios en `e2e/lib/scenarios.py`.
 
 La orquestación de release vive en `.github/workflows/release-candidate.yml`, que ejecuta la suite contra un ref concreto y sube los comentarios publicados como artifacts.
+
+Estos dos componentes llegan con #128, que depende de este documento: el harness consume el contrato corregido. Hasta que #128 se integre, la suite no puede ejecutar los escenarios que aquí se definen.
 
 Este documento es el **contrato base permanente**: los releases siguientes deben reutilizar esta matriz como baseline, no como una suite exclusiva.
