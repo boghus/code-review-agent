@@ -29,9 +29,27 @@ on:
         required: false
         type: string
         default: '480'
+  # Reusable so another workflow, a nightly validation or a pre-merge gate,
+  # can invoke the validation without duplicating the job definition.
+  workflow_call:
+    inputs:
+      action_ref:
+        description: 'Reference (branch, tag or SHA) of this repository to validate.'
+        required: true
+        type: string
+      scenario:
+        description: 'Scenario to run. Leave empty to run every scenario.'
+        required: false
+        type: string
+        default: ''
+      timeout:
+        description: 'Seconds to wait for the action to comment.'
+        required: false
+        type: string
+        default: '480'
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   issues: write
 

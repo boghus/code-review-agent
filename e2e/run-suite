@@ -130,8 +130,13 @@ def describe_failure(result):
 def main(argv):
     # Flush as we go: the suite waits on long polls, and buffered output
     # would leave the run looking silent while it is actually working.
+    #
+    # In --json mode the progress goes to stderr so stdout stays a valid JSON
+    # document that can be piped into a parser.
+    json_mode = "--json" in argv
+
     def log(message=""):
-        print(message, flush=True)
+        print(message, file=sys.stderr if json_mode else sys.stdout, flush=True)
 
     args = parse_args(argv)
 
@@ -165,24 +170,29 @@ def main(argv):
             print("error: --recreate-fixtures requires --action-ref", file=sys.stderr)
             return 2
         log("Recreating the fixture branches from %s" % args.action_ref)
-        recreate_fixtures(args.repo, selected, args.action_ref)
+        recreate_fixtures(args.repo, selected, args.action_ref, log=log)
         log()
 
     results = []
     results_lock = threading.Lock()
     pending = list(selected)
+    deadline = time.time() + args.max_total
 
     def worker():
         while True:
             with results_lock:
                 if not pending:
                     return
+                if time.time() >= deadline:
+                    log("  time budget exhausted, abandoning the remaining scenarios")
+                    pending[:] = []
+                    return
                 scenario = pending.pop(0)
             log("-> %s" % scenario.name)
             result = run_scenario(
                 scenario, args.repo, args.ref, args.ref,
                 timeout=args.timeout, artifacts_dir=args.artifacts_dir,
-                provider_retries=args.provider_retries,
+                provider_retries=args.provider_retries, log=log,
             )
             with results_lock:
                 results.append(result)
