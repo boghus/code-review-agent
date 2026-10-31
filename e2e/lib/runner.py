@@ -266,21 +266,32 @@ def _execute(scenario, repo, base_branch, timeout, log):
                 timeout=timeout, log=log,
             )
             log("  comment updated in place after %ds" % int(update_elapsed))
+            # Grade the updated comment. The second run is what the scenario
+            # is about, and it may have found something the first run did
+            # not, or lost the review entirely.
+            body = comment.get("body") or ""
 
         checks = scenario.run_assertions(body)
 
         # A scenario expecting a valid review must not be failed against the
         # structural checks when the action could not reach the provider at
-        # all. Reclassify so the report blames the outage rather than the
-        # product, which is what the failure classification is for.
+        # all. Tag those as provider so the report blames the outage rather
+        # than the product, which is what the failure classification is for.
+        #
+        # The action checks are kept: a duplicated marker alongside an outage
+        # is still a defect of the action, and dropping it would let the
+        # defect disappear once a retry succeeded.
         if not scenario.expect_provider_failure and assertions.is_provider_failure(body):
-            checks = [assertions.check(
+            for check in checks:
+                if check.failure_class == "action":
+                    check.failure_class = "provider"
+            checks.append(assertions.check(
                 "provider reachable",
                 False,
                 "the action reported the provider as unavailable: %s"
                 % _provider_message(body),
                 failure_class="provider",
-            )]
+            ))
 
         published = gh_client.cra_comments(repo, pr_number)
         checks.append(assertions.check(

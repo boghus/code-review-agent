@@ -207,6 +207,34 @@ def branch_exists(repo, branch):
     return code == 0
 
 
+def reset_branch_to(repo, branch, source_ref):
+    """Point a branch at ``source_ref``, discarding whatever it held.
+
+    The branch has to be reset, not left in place: the workflow on that branch
+    runs the action from its own HEAD, so a branch that still pointed at older
+    code would validate the old code and report a pass for it.
+    """
+    source = resolve_sha(repo, source_ref)
+    if branch_exists(repo, branch):
+        current = head_sha(repo, branch)
+        if current == source:
+            return False
+        gh_json([
+            "api", "--method", "PATCH",
+            "repos/%s/git/refs/heads/%s" % (repo, branch),
+            "-f", "sha=%s" % source,
+            "-f", "force=true",
+        ])
+        return True
+    gh_json([
+        "api", "--method", "POST",
+        "repos/%s/git/refs" % repo,
+        "-f", "ref=refs/heads/%s" % branch,
+        "-f", "sha=%s" % source,
+    ])
+    return True
+
+
 def create_branch_from(repo, branch, source_ref):
     """Create a branch pointing at ``source_ref`` when it does not exist yet.
 
@@ -247,18 +275,26 @@ def resolve_sha(repo, ref):
     """Resolve a branch, tag or SHA to a full commit SHA.
 
     The git database API only accepts full SHAs, so a branch or a tag name has
-    to be resolved through the branches or tags endpoints first.
+    to be resolved first. A tag is read through the git refs endpoint, which
+    takes a tag name, and an annotated tag is dereferenced to the commit it
+    points at.
     """
     if len(ref) == 40 and all(c in "0123456789abcdef" for c in ref.lower()):
         return ref
+
     try:
         return head_sha(repo, ref)
     except (GhError, KeyError, ValueError):
         pass
-    result = gh_json(["api", "repos/%s/tags/%s" % (repo, ref)])
-    if isinstance(result, list):
-        result = result[0]
-    return result["commit"]["sha"]
+
+    # git/ref/tags/<name> resolves a tag name to its object. An annotated tag
+    # points at a tag object rather than at a commit, so it is dereferenced.
+    result = gh_json(["api", "repos/%s/git/ref/tags/%s" % (repo, ref)])
+    target = result.get("object") or {}
+    if target.get("type") == "tag":
+        tag = gh_json(["api", "repos/%s/git/tags/%s" % (repo, target["sha"])])
+        return tag["object"]["sha"]
+    return target["sha"]
 
 
 def commit_tree_sha(repo, sha):
@@ -270,11 +306,11 @@ def apply_fixture_commit(repo, branch, source_ref, fixture_path, content,
                           message):
     """Apply the fixture change to a branch and push it.
 
-    The branch is created from ``source_ref`` and then receives the fixture
-    file, so the diff the reviewer sees is exactly the fixture change and
-    nothing else.
+    The branch is reset to ``source_ref`` and then receives the fixture file,
+    so the diff the reviewer sees is exactly the fixture change and nothing
+    else, and the code the reviewer executes is the code of ``source_ref``.
     """
-    create_branch_from(repo, branch, source_ref)
+    reset_branch_to(repo, branch, source_ref)
 
     head = head_sha(repo, branch)
     base_tree = commit_tree_sha(repo, head)

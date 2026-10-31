@@ -82,6 +82,11 @@ jobs:
       # The scenarios open pull requests from the qa/e2e-* fixture branches and
       # push the empty commits that trigger each run, so the token needs write
       # access to this repository.
+      #
+      # --action-ref is the release candidate under test: the fixture branches
+      # are recreated from it, so the code the reviewer executes is the code
+      # of that reference. --ref stays on main because the base of a pull
+      # request has to be a branch that exists.
       - name: Run the E2E suite
         shell: bash
         env:
@@ -90,7 +95,7 @@ jobs:
           SCENARIO: ${{ inputs.scenario }}
           TIMEOUT: ${{ inputs.timeout }}
         run: |
-          args=(--timeout "$TIMEOUT")
+          args=(--timeout "$TIMEOUT" --action-ref "$ACTION_REF" --recreate-fixtures)
           if [[ -n "$SCENARIO" ]]; then
             args+=(--scenario "$SCENARIO")
           fi

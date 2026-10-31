@@ -107,7 +107,7 @@ SCENARIOS = [
         "medium",
         "duplication without tests yields a MEDIUM finding",
         min_counts=(0, 0, 1, 0),
-        expected_files={_fixture_file("medium/Formatter.groovy")},
+        expected_files={_fixture_file("medium/FormatterFixture.groovy")},
         min_findings=1,
         expect_severity="MEDIUM",
     ),

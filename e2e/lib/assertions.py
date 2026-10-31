@@ -112,18 +112,22 @@ def has_legacy_marker(body):
 
 
 def is_provider_failure(body):
-    """True when the comment reports the action as unavailable or skipped.
+    """True when the comment reports the action as unavailable.
 
-    These branches are written by ``ReviewReportWriter.writeFailure`` and
-    friends and never by the model, so this classification is deterministic.
+    Only the "unavailable" branch is a provider outage. The "skipped" branch
+    covers a configuration or rules problem, which is a defect in the setup
+    rather than an infrastructure outage, and it must not be retried as one.
     """
     if MARKER not in body:
         return False
-    if "Code Review Agent by boghus unavailable" in body:
-        return True
-    if "Code Review Agent by boghus skipped" in body:
-        return True
-    return False
+    return "Code Review Agent by boghus unavailable" in body
+
+
+def is_skipped(body):
+    """True when the action skipped the review for a setup reason."""
+    if MARKER not in body:
+        return False
+    return "Code Review Agent by boghus skipped" in body
 
 
 def is_non_ai_report(body):
@@ -322,6 +326,17 @@ def assert_valid_review(body, expected_counts=None, expected_files=None,
                 "finding locations within fixture",
                 not unexpected,
                 "unexpected: %s" % unexpected[:3] if unexpected else "",
+                failure_class="llm_variance",
+            )
+        )
+        # A review with no location at all would pass the check above, since
+        # there is nothing unexpected in an empty list. The scenarios that
+        # pin a file expect the finding to point at it.
+        checks.append(
+            check(
+                "finding locations present",
+                bool(locations),
+                "no file:line reference was rendered",
                 failure_class="llm_variance",
             )
         )

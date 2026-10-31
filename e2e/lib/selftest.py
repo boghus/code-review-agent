@@ -21,6 +21,8 @@ from assertions import (
     classify_failure,
     find_secrets,
     is_non_ai_report,
+    is_provider_failure,
+    is_skipped,
     parse_finding_severities,
     parse_findings_count,
     parse_locations,
@@ -398,6 +400,56 @@ def test_every_scenario_pins_its_fixture():
     return ok
 
 
+def test_skipped_is_not_a_provider_outage():
+    """A skip is a setup problem, not an infrastructure outage.
+
+    Treating a skip as a provider failure would retry it as infrastructure
+    and report it as an outage, when it is a defect in the configuration or
+    the rules that will not clear on its own.
+    """
+    body = (MARKER + "\n## ⚠️ Code Review Agent by boghus skipped\n\n"
+            "The rules file could not be read.\n\n"
+            "This is non-blocking; fix the configuration or rules and re-run.\n")
+    ok = not is_provider_failure(body) and is_skipped(body)
+    print("%s skipped is not classified as a provider outage" % ("PASS" if ok else "FAIL"))
+    return ok
+
+
+def test_missing_location_fails_when_files_are_expected():
+    """A review with no file:line must fail when the scenario pins a file.
+
+    The location check only rejects unexpected paths, so an empty list of
+    locations passes it. A scenario that pins a file expects the finding to
+    point at it.
+    """
+    body = render([finding("CRITICAL", "Sin ubicacion", None, None,
+                           description="Sin ruta ni linea")], summary="Un hallazgo.")
+    checks = assert_valid_review(body, expected_files={"e2e/fixtures/critical/ConfigFixture.groovy"},
+                                  min_counts=(1, 0, 0, 0), expect_severity="CRITICAL")
+    location_check = [c for c in checks if c.name == "finding locations present"]
+    ok = bool(location_check) and not location_check[0].ok
+    print("%s a missing location fails the check (%s)"
+          % ("PASS" if ok else "FAIL", location_check[0].detail if location_check else "no check"))
+    return ok
+
+
+def test_action_checks_survive_a_provider_outage():
+    """A structural defect must not disappear behind a provider outage.
+
+    The provider reclassification used to replace the whole check list, so a
+    duplicated marker reported alongside an outage was dropped and the retry
+    could report a pass.
+    """
+    body = (MARKER + "\n## ⚠️ Code Review Agent by boghus unavailable\n\n"
+            "Quota exhausted.\n\nThe automated review is non-blocking.\n" + MARKER)
+    checks = assert_identity(body)
+    duplicated = [c for c in checks if c.name == "marker appears exactly once"]
+    ok = bool(duplicated) and not duplicated[0].ok
+    print("%s the duplicated marker is still reported during an outage"
+          % ("PASS" if ok else "FAIL"))
+    return ok
+
+
 def main():
     case("clean en", test_clean_english)
     case("clean es", test_clean_spanish)
@@ -420,6 +472,9 @@ def main():
     case("provider reclassified", test_provider_failure_beats_structural_failures)
     case("fixture is plain text", test_fixture_content_is_plain_text)
     case("fixtures are pinned", test_every_scenario_pins_its_fixture)
+    case("skipped is not an outage", test_skipped_is_not_a_provider_outage)
+    case("missing location fails", test_missing_location_fails_when_files_are_expected)
+    case("action checks survive outage", test_action_checks_survive_a_provider_outage)
 
     print()
     passed = sum(1 for _, ok in RESULTS if ok)
