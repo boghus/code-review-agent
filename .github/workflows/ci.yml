@@ -113,7 +113,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
       - run: gradle assemble --no-daemon
 
   tests:
@@ -126,7 +126,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
       - run: gradle test --no-daemon
       - name: Verify GitHub token isolation
         shell: bash
