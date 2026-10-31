@@ -27,11 +27,11 @@ Por eso cada fixture se identifica por el **SHA del commit que lo introduce**, r
 
 | Scenario | Fixture | Archivo | SHA del fixture | Rama | Trigger inicial | Trigger adicional | Resultado esperado |
 |---|---|---|---|---|---|---|---|
-| `critical` | Cambio con un secreto/API key hardcodeado | `e2e/fixtures/critical/ConfigFixture.groovy` | `312594b5190a7e74883cf90e6d2047cc2ff4c900` | `qa/e2e-critical` | `opened` | — | Comentario CRA con al menos un finding CRITICAL |
-| `high` | Cambio con un bug funcional evidente | `e2e/fixtures/high/CounterFixture.groovy` | `312594b5190a7e74883cf90e6d2047cc2ff4c900` | `qa/e2e-high` | `opened` | — | Comentario CRA con al menos un finding HIGH |
-| `medium` | Cambio con duplicación o ausencia de test | `e2e/fixtures/medium/FormatterFixture.groovy` | `312594b5190a7e74883cf90e6d2047cc2ff4c900` | `qa/e2e-medium` | `opened` | — | Comentario CRA con al menos un finding MEDIUM |
-| `clean` | Cambio trivial y limpio | `e2e/fixtures/clean/CleanFixture.groovy` | `312594b5190a7e74883cf90e6d2047cc2ff4c900` | `qa/e2e-clean` | `opened` | — | Comentario CRA con 0 findings en las cuatro severidades |
-| `idempotency` | Cambio trivial; luego commit vacío | `e2e/fixtures/idempotency/IdempotencyFixture.groovy` | `312594b5190a7e74883cf90e6d2047cc2ff4c900` | `qa/e2e-idempotency` | `opened` | `synchronize` | Un solo comentario CRA; se actualiza conservando el ID |
+| `critical` | Cambio con un secreto/API key hardcodeado | `e2e/fixtures/critical/ConfigFixture.groovy` | `7dbe4505097c29ccadab787b33ed862857cbcc98` | `qa/e2e-critical` | `opened` | — | Comentario CRA con al menos un finding CRITICAL |
+| `high` | Cambio con un bug funcional evidente | `e2e/fixtures/high/CounterFixture.groovy` | `7dbe4505097c29ccadab787b33ed862857cbcc98` | `qa/e2e-high` | `opened` | — | Comentario CRA con al menos un finding HIGH |
+| `medium` | Cambio con duplicación o ausencia de test | `e2e/fixtures/medium/FormatterFixture.groovy` | `7dbe4505097c29ccadab787b33ed862857cbcc98` | `qa/e2e-medium` | `opened` | — | Comentario CRA con al menos un finding MEDIUM |
+| `clean` | Cambio trivial y limpio | `e2e/fixtures/clean/CleanFixture.groovy` | `7dbe4505097c29ccadab787b33ed862857cbcc98` | `qa/e2e-clean` | `opened` | — | Comentario CRA con 0 findings en las cuatro severidades |
+| `idempotency` | Cambio trivial; luego commit vacío | `e2e/fixtures/idempotency/IdempotencyFixture.groovy` | `7dbe4505097c29ccadab787b33ed862857cbcc98` | `qa/e2e-idempotency` | `opened` | `synchronize` | Un solo comentario CRA; se actualiza conservando el ID |
 | `provider-failure` | Modelo inválido (`invalid-provider-model`) | `.github/workflows/ci.yml` | `3c7c5774b93c618d1a32648cf29ec6277d198d5a` | `qa/e2e-provider-failure` | `opened` | — | Comentario de error controlado, sin findings |
 
 El SHA registrado es el del commit que introduce el fixture. Actualizar un fixture es un acto deliberado: se cambia el contenido y, en el mismo cambio, el SHA de esta tabla.
