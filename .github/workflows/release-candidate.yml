@@ -1,0 +1,111 @@
+name: Release candidate validation
+
+# Validates a release candidate of the action by running the E2E suite against
+# a reference of this repository.
+#
+# The reference under test is checked out here and the suite creates the
+# fixture branches from it, so the action that runs is the one at that
+# reference. A step-level `uses:` cannot hold an expression, so the reference
+# cannot be interpolated into `boghus/code-review-agent@<ref>`; running the
+# local path after checking out the reference achieves the same thing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action_ref:
+        description: >-
+          Reference (branch, tag or SHA) of this repository to validate. The
+          action is executed from that checkout.
+        required: true
+        type: string
+      scenario:
+        description: >-
+          Scenario to run. Leave empty to run every scenario.
+        required: false
+        type: string
+        default: ''
+      timeout:
+        description: 'Seconds to wait for the action to comment.'
+        required: false
+        type: string
+        default: '480'
+  # Reusable so another workflow, a nightly validation or a pre-merge gate,
+  # can invoke the validation without duplicating the job definition.
+  workflow_call:
+    inputs:
+      action_ref:
+        description: 'Reference (branch, tag or SHA) of this repository to validate.'
+        required: true
+        type: string
+      scenario:
+        description: 'Scenario to run. Leave empty to run every scenario.'
+        required: false
+        type: string
+        default: ''
+      timeout:
+        description: 'Seconds to wait for the action to comment.'
+        required: false
+        type: string
+        default: '480'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: release-candidate-validation-${{ inputs.action_ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate ${{ inputs.action_ref }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the reference under test
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.action_ref }}
+          fetch-depth: 0
+
+      - name: Show the configuration
+        shell: bash
+        env:
+          ACTION_REF: ${{ inputs.action_ref }}
+          SCENARIO: ${{ inputs.scenario }}
+          TIMEOUT: ${{ inputs.timeout }}
+        run: |
+          echo "Release candidate: ${ACTION_REF}"
+          echo "Scenario: ${SCENARIO:-all}"
+          echo "Timeout: ${TIMEOUT}s"
+
+      # The scenarios open pull requests from the qa/e2e-* fixture branches and
+      # push the empty commits that trigger each run, so the token needs write
+      # access to this repository.
+      #
+      # --action-ref is the release candidate under test: the fixture branches
+      # are recreated from it, so the code the reviewer executes is the code
+      # of that reference. --ref stays on main because the base of a pull
+      # request has to be a branch that exists.
+      - name: Run the E2E suite
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION_REF: ${{ inputs.action_ref }}
+          SCENARIO: ${{ inputs.scenario }}
+          TIMEOUT: ${{ inputs.timeout }}
+        run: |
+          args=(--timeout "$TIMEOUT" --action-ref "$ACTION_REF" --recreate-fixtures)
+          if [[ -n "$SCENARIO" ]]; then
+            args+=(--scenario "$SCENARIO")
+          fi
+          ./e2e/run-suite "${args[@]}"
+
+      - name: Upload the artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts-${{ inputs.action_ref }}
+          path: e2e/artifacts/
+          if-no-files-found: ignore
+          retention-days: 30

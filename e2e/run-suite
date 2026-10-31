@@ -1,0 +1,255 @@
+#!/usr/bin/env python3
+"""E2E suite for the Code Review Agent.
+
+Runs the scenarios defined in ``e2e/README.md`` against real pull requests
+opened from the ``qa/e2e-*`` fixture branches in this repository.
+
+    ./e2e/run-suite                      # every scenario, against main
+    ./e2e/run-suite --scenario clean     # one scenario
+    ./e2e/run-suite --ref v1.0.0-rc.1    # validate a release candidate
+
+The exit code is non-zero when any scenario does not pass, so the suite can
+gate a release.
+"""
+
+import argparse
+import os
+import subprocess
+import sys
+import threading
+import time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "lib"))
+
+import gh_client  # noqa: E402
+import scenarios as scenario_registry  # noqa: E402
+from runner import FIXTURES_DIR, _fixture_content, recreate_fixtures, run_scenario  # noqa: E402
+
+DEFAULT_REPO = "boghus/code-review-agent"
+DEFAULT_REF = "main"
+MAX_CONCURRENT = 3
+
+
+def parse_args(argv):
+    parser = argparse.ArgumentParser(
+        prog="run-suite",
+        description="Run the Code Review Agent E2E suite against real pull requests.",
+    )
+    parser.add_argument("--repo", default=DEFAULT_REPO,
+                        help="owner/name of the repository under test")
+    parser.add_argument("--ref", default=DEFAULT_REF,
+                        help="base ref the fixture pull requests target")
+    parser.add_argument("--action-ref", default=None,
+                        help="reference of the action under test, for example a tag or "
+                             "a SHA. The fixture branches are recreated from this "
+                             "reference so the action that runs is the one under test. "
+                             "The ref under test is what makes the run evidence for a "
+                             "release candidate.")
+    parser.add_argument("--recreate-fixtures", action="store_true",
+                        help="recreate the qa/e2e-* branches from --action-ref, "
+                             "replacing their current content")
+    parser.add_argument("--scenario", action="append", dest="scenarios", metavar="NAME",
+                        help="run only this scenario; repeatable")
+    parser.add_argument("--timeout", type=int, default=480,
+                        help="seconds to wait for the action to comment")
+    parser.add_argument("--max-total", type=int, default=3600,
+                        help="seconds after which the whole run is abandoned")
+    parser.add_argument("--provider-retries", type=int, default=1,
+                        help="retries for a scenario that failed because the provider "
+                             "was unavailable. Model variance is never retried.")
+    parser.add_argument("--concurrency", type=int, default=MAX_CONCURRENT,
+                        help="scenarios to run in parallel")
+    parser.add_argument("--artifacts-dir",
+                        default=os.path.join(HERE, "artifacts"),
+                        help="where to store published comments on failure")
+    parser.add_argument("--list", action="store_true",
+                        help="list the scenarios and exit")
+    parser.add_argument("--json", dest="as_json", action="store_true",
+                        help="emit machine-readable results")
+    return parser.parse_args(argv)
+
+
+def preflight(repo, scenarios):
+    """Fail fast on the things that would otherwise waste a full run.
+
+    The fixture branches do not have to exist: the harness recreates them from
+    the fixtures it carries, and creates their pull requests on demand. What
+    does have to exist is the fixture file for each scenario.
+    """
+    problems = []
+    try:
+        gh_client.gh_json(["api", "repos/%s" % repo])
+    except gh_client.GhError as error:
+        problems.append("cannot reach %s: %s" % (repo, error))
+
+    _, _, code = gh_client._run(["gh", "auth", "status"], check=False)
+    if code != 0:
+        problems.append("gh is not authenticated; run `gh auth login`")
+
+    for scenario in scenarios:
+        content, path, sha = _fixture_content(scenario, repo)
+        if not sha:
+            problems.append(
+                "scenario %s has no pinned fixture commit SHA; it cannot run "
+                "deterministically yet" % scenario.name
+            )
+            continue
+        if content is None and path is not None:
+            problems.append(
+                "the fixture %s of scenario %s is not readable at %s"
+                % (path, scenario.name, sha[:7])
+            )
+    return problems
+
+
+def describe_failure(result):
+    """Explain a failure in terms of what to do next."""
+    if result.status == "SKIPPED":
+        return "  - %s" % (result.error or "scenario not available")
+
+    if result.error and not result.failed_checks:
+        return "  ! %s" % result.error.splitlines()[0]
+
+    lines = []
+    for check in result.failed_checks:
+        suffix = " (%s)" % check.failure_class if check.failure_class else ""
+        lines.append("  x %s%s: %s" % (check.name, suffix, check.detail))
+
+    if result.failure_class == "action":
+        lines.append("  -> action defect: re-running is unlikely to change this")
+    elif result.failure_class == "llm_variance":
+        lines.append("  -> model variance: the report is well formed but lacks the finding")
+    elif result.failure_class == "provider":
+        lines.append("  -> provider outage, not a product defect: retry later")
+    if result.artifact:
+        lines.append("  -> artifact: %s" % result.artifact)
+    return "\n".join(lines)
+
+
+def main(argv):
+    # Flush as we go: the suite waits on long polls, and buffered output
+    # would leave the run looking silent while it is actually working.
+    #
+    # In --json mode the progress goes to stderr so stdout stays a valid JSON
+    # document that can be piped into a parser.
+    json_mode = "--json" in argv
+
+    def log(message=""):
+        print(message, file=sys.stderr if json_mode else sys.stdout, flush=True)
+
+    args = parse_args(argv)
+
+    if args.list:
+        for scenario in scenario_registry.SCENARIOS:
+            timeout = scenario.timeout or args.timeout
+            log("%-18s %s  (%s, timeout %ds)"
+                % (scenario.name, scenario.title, scenario.branch, timeout))
+        return 0
+
+    try:
+        selected = scenario_registry.get(args.scenarios)
+    except ValueError as error:
+        print("error: %s" % error, file=sys.stderr)
+        return 2
+
+    log("Code Review Agent E2E")
+    log("Repo: %s" % args.repo)
+    log("Ref: %s" % args.ref)
+    log()
+
+    problems = preflight(args.repo, selected)
+    if problems:
+        print("preflight failed:", file=sys.stderr)
+        for problem in problems:
+            print("  - %s" % problem, file=sys.stderr)
+        return 2
+
+    if args.recreate_fixtures:
+        if not args.action_ref:
+            print("error: --recreate-fixtures requires --action-ref", file=sys.stderr)
+            return 2
+        log("Recreating the fixture branches from %s" % args.action_ref)
+        recreate_fixtures(args.repo, selected, args.action_ref, log=log)
+        log()
+
+    results = []
+    results_lock = threading.Lock()
+    pending = list(selected)
+    deadline = time.time() + args.max_total
+
+    def worker():
+        while True:
+            with results_lock:
+                if not pending:
+                    return
+                if time.time() >= deadline:
+                    log("  time budget exhausted, abandoning the remaining scenarios")
+                    pending[:] = []
+                    return
+                scenario = pending.pop(0)
+            log("-> %s" % scenario.name)
+            result = run_scenario(
+                scenario, args.repo, args.ref, args.ref,
+                timeout=args.timeout, artifacts_dir=args.artifacts_dir,
+                provider_retries=args.provider_retries, log=log,
+            )
+            with results_lock:
+                results.append(result)
+            symbol = {"PASS": "✓", "SKIPPED": "-", "FAIL": "✗", "ERROR": "!"}.get(
+                result.status, "?"
+            )
+            log("  %s %s (%ds)" % (symbol, result.status, int(result.elapsed)))
+            if not result.passed:
+                log(describe_failure(result))
+
+    worker_count = max(1, min(args.concurrency, len(selected)))
+    threads = [threading.Thread(target=worker) for _ in range(worker_count)]
+    started = time.time()
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    ordered = sorted(results, key=lambda item: [s.name for s in selected].index(item.scenario.name))
+    passed = sum(1 for result in ordered if result.passed)
+
+    log()
+    if args.as_json:
+        import json
+        print(json.dumps([
+            {
+                "scenario": result.scenario.name,
+                "status": result.status,
+                "failure_class": result.failure_class,
+                "pr": result.pr_number,
+                "comment_id": result.comment_id,
+                "artifact": result.artifact,
+                "error": result.error,
+            }
+            for result in ordered
+        ], indent=2))
+    else:
+        for result in ordered:
+            symbol = {"PASS": "✓", "SKIPPED": "-", "FAIL": "✗", "ERROR": "!"}.get(
+                result.status, "?"
+            )
+            detail = "" if result.passed else "  %s" % result.failure_class
+            log("%s %s%s" % (symbol, result.scenario.name, detail))
+        log()
+        log("%d/%d PASS" % (passed, len(ordered)))
+        log("Ref: %s" % args.ref)
+        log("Elapsed: %ds" % int(time.time() - started))
+
+    # A skipped scenario is not a failure, but it is also not a pass: the
+    # suite cannot vouch for a scenario it did not run.
+    failed = [result for result in ordered if result.status in ("FAIL", "ERROR")]
+    skipped = [result for result in ordered if result.status == "SKIPPED"]
+    if skipped:
+        log("  %d scenario(s) skipped: %s"
+            % (len(skipped), ", ".join(r.scenario.name for r in skipped)))
+    return 0 if not failed else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

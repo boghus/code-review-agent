@@ -278,6 +278,6 @@ El **E2E Test Harness (#128)** implementa estos contratos en `e2e/run-suite` y `
 
 La orquestación de release vive en `.github/workflows/release-candidate.yml`, que ejecuta la suite contra un ref concreto y sube los comentarios publicados como artifacts.
 
-Estos dos componentes llegan con #128, que depende de este documento: el harness consume el contrato corregido. Hasta que #128 se integre, la suite no puede ejecutar los escenarios que aquí se definen.
+El harness depende de este documento: consume el contrato corregido, incluida la tabla de SHA que fija cada fixture.
 
 Este documento es el **contrato base permanente**: los releases siguientes deben reutilizar esta matriz como baseline, no como una suite exclusiva.
