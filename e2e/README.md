@@ -19,14 +19,26 @@ Los fixtures viven en **este mismo repositorio**, como archivos bajo `e2e/fixtur
 
 Las ramas y sus pull requests son artefactos desechables: el harness las recrea en cada corrida a partir de los archivos de fixture y del ref bajo prueba. Por eso el fixture no depende de un pull request abierto y puede validarse contra un tag o un release candidate.
 
-| Scenario | Fixture | Rama | Trigger inicial | Trigger adicional | Resultado esperado |
-|---|---|---|---|---|---|
-| `critical` | Cambio con un secreto/API key hardcodeado | `qa/e2e-critical` | `opened` | — | Comentario CRA con al menos un finding CRITICAL |
-| `high` | Cambio con un bug funcional evidente | `qa/e2e-high` | `opened` | — | Comentario CRA con al menos un finding HIGH |
-| `medium` | Cambio con duplicación o ausencia de test | `qa/e2e-medium` | `opened` | — | Comentario CRA con al menos un finding MEDIUM |
-| `clean` | Cambio trivial y limpio | `qa/e2e-clean` | `opened` | — | Comentario CRA con 0 findings en las cuatro severidades |
-| `idempotency` | Cambio trivial; luego commit vacío | `qa/e2e-idempotency` | `opened` | `synchronize` | Un solo comentario CRA; se actualiza conservando el ID |
-| `provider-failure` | Modelo inválido (`invalid-provider-model`) | `qa/e2e-provider-failure` | `opened` | — | Comentario de error controlado, sin findings |
+### El fixture es un archivo versionado, no una rama
+
+Una rama puede moverse y no fija nada: un push accidental sobre `qa/e2e-high` cambiaría el escenario de un release al siguiente sin que nadie lo note. Un archivo dentro de un commit sí es inmutable, porque su contenido está determinado por el SHA.
+
+Por eso cada fixture se identifica por el **SHA del commit que lo introduce**, registrado abajo. El harness resuelve el fixture a ese SHA, no al nombre de la rama, así que una actualización accidental de la rama no altera el escenario. Actualizar un fixture es un acto deliberado: se cambia el SHA registrado en esta tabla junto con el contenido.
+
+| Scenario | Fixture | Archivo | SHA del fixture | Rama | Trigger inicial | Trigger adicional | Resultado esperado |
+|---|---|---|---|---|---|---|---|
+| `critical` | Cambio con un secreto/API key hardcodeado | `e2e/fixtures/critical/ConfigFixture.groovy` | `312594b5190a7e74883cf90e6d2047cc2ff4c900` | `qa/e2e-critical` | `opened` | — | Comentario CRA con al menos un finding CRITICAL |
+| `high` | Cambio con un bug funcional evidente | `e2e/fixtures/high/CounterFixture.groovy` | `312594b5190a7e74883cf90e6d2047cc2ff4c900` | `qa/e2e-high` | `opened` | — | Comentario CRA con al menos un finding HIGH |
+| `medium` | Cambio con duplicación o ausencia de test | `e2e/fixtures/medium/FormatterFixture.groovy` | `312594b5190a7e74883cf90e6d2047cc2ff4c900` | `qa/e2e-medium` | `opened` | — | Comentario CRA con al menos un finding MEDIUM |
+| `clean` | Cambio trivial y limpio | `e2e/fixtures/clean/CleanFixture.groovy` | `312594b5190a7e74883cf90e6d2047cc2ff4c900` | `qa/e2e-clean` | `opened` | — | Comentario CRA con 0 findings en las cuatro severidades |
+| `idempotency` | Cambio trivial; luego commit vacío | `e2e/fixtures/idempotency/IdempotencyFixture.groovy` | `312594b5190a7e74883cf90e6d2047cc2ff4c900` | `qa/e2e-idempotency` | `opened` | `synchronize` | Un solo comentario CRA; se actualiza conservando el ID |
+| `provider-failure` | Modelo inválido (`invalid-provider-model`) | `.github/workflows/ci.yml` | `3c7c5774b93c618d1a32648cf29ec6277d198d5a` | `qa/e2e-provider-failure` | `opened` | — | Comentario de error controlado, sin findings |
+
+El SHA registrado es el del commit que introduce el fixture. Actualizar un fixture es un acto deliberado: se cambia el contenido y, en el mismo cambio, el SHA de esta tabla.
+
+Un escenario cuyo fixture todavía no tenga SHA registrado se reporta como **omitido**, no como aprobado. El harness no puede dar por bueno un escenario que no ejecutó.
+
+`provider-failure` no tiene un archivo de fixture: es un cambio en la configuración del workflow, así que su SHA es el commit que introduce el modelo inválido.
 
 Las reglas usadas en cada review provienen de `.github/code_review_rules.md` en el **base ref** (`main`), porque `TrustedRulesLoader` resuelve las reglas desde el base ref del PR y nunca desde el diff.
 
@@ -170,7 +182,8 @@ Cada fixture debe declarar:
 ```text
 scenario
 fixture repository
-fixture ref/commit
+fixture file path
+fixture commit SHA
 rules file
 expected severity
 expected finding count/minimum
@@ -183,7 +196,9 @@ El repositorio consumidor de los fixtures es **este repositorio**. Las ramas `qa
 
 Las reglas utilizadas durante el review deben provenir del **base ref** del PR. Un cambio de reglas dentro del PR no debe modificar las reglas confiables usadas para ese mismo review.
 
-Los fixtures CRITICAL/HIGH/MEDIUM son archivos versionados junto al harness, de modo que son reproducibles por definición. El harness no debe seleccionar automáticamente un cambio arbitrario para satisfacer una severidad.
+El fixture se identifica por el **SHA del commit que lo introduce**, registrado en la matriz base. Ese SHA es la referencia que el harness resuelve, no el nombre de la rama: una rama puede moverse, y una actualización accidental no debe cambiar el escenario de un release al siguiente. Actualizar un fixture es deliberado y consiste en cambiar su contenido junto con el SHA registrado.
+
+Los fixtures CRITICAL/HIGH/MEDIUM son archivos versionados junto al harness. El harness no debe seleccionar automáticamente un cambio arbitrario para satisfacer una severidad.
 
 ## Assertions deterministas vs. LLM
 
