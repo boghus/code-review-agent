@@ -6,19 +6,23 @@ import static org.assertj.core.api.Assertions.assertThat
 import static org.assertj.core.api.Assertions.assertThatThrownBy
 
 class AiProviderFactoryTest {
-
     @Test
     void 'creates a GeminiAdapter when provider is gemini'() {
         AiProvider provider = AiProviderFactory.create('gemini', 'k', 'm')
-
         assertThat(provider).isInstanceOf(GeminiAdapter)
         assertThat(provider.type()).isEqualTo(AiProviderType.GEMINI)
     }
 
     @Test
+    void 'creates an OpenRouterAdapter when provider is openrouter'() {
+        AiProvider provider = AiProviderFactory.create('openrouter', 'k', 'openrouter/free')
+        assertThat(provider).isInstanceOf(OpenRouterAdapter)
+        assertThat(provider.type()).isEqualTo(AiProviderType.OPENROUTER)
+    }
+
+    @Test
     void 'creates a GeminiAdapter from the provider enum'() {
         AiProvider provider = AiProviderFactory.create(AiProviderType.GEMINI, 'k', 'm')
-
         assertThat(provider).isInstanceOf(GeminiAdapter)
         assertThat(provider.type()).isEqualTo(AiProviderType.GEMINI)
     }
@@ -26,7 +30,6 @@ class AiProviderFactoryTest {
     @Test
     void 'accepts provider names case insensitively'() {
         AiProvider provider = AiProviderFactory.create(' GEMINI ', 'k', 'm')
-
         assertThat(provider.type()).isEqualTo(AiProviderType.GEMINI)
     }
 
@@ -45,6 +48,6 @@ class AiProviderFactoryTest {
 
     @Test
     void 'supportedProviders exposes registered names'() {
-        assertThat(AiProviderFactory.supportedProviders()).contains('gemini')
+        assertThat(AiProviderFactory.supportedProviders()).contains('gemini', 'openrouter')
     }
 }

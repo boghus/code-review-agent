@@ -2,17 +2,10 @@ package com.boghus.codereview.provider
 
 import java.util.function.BiFunction
 
-/**
- * Factory that resolves an {@link AiProvider} from the configured provider name.
- *
- * The configuration boundary accepts a String, but provider resolution uses
- * {@link AiProviderType} internally so provider names are not magic strings
- * throughout the domain.
- */
 class AiProviderFactory {
-
     private static final Map<AiProviderType, BiFunction<String, String, AiProvider>> REGISTRY = [
-        (AiProviderType.GEMINI): { String apiKey, String model -> new GeminiAdapter(apiKey, model) }
+        (AiProviderType.GEMINI): { String apiKey, String model -> new GeminiAdapter(apiKey, model) },
+        (AiProviderType.OPENROUTER): { String apiKey, String model -> new OpenRouterAdapter(apiKey, model) }
     ]
 
     static AiProvider create(String providerName, String apiKey, String model) {
