@@ -7,6 +7,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.net.http.HttpTimeoutException
 import java.time.Duration
 
 /**
@@ -95,6 +96,12 @@ class OpenRouterAdapter implements AiProvider {
                 'The OpenRouter request was interrupted before the review completed.',
                 ex
             )
+        } catch (HttpTimeoutException ex) {
+            throw new AiProviderException(
+                AiProviderErrorCategory.TIMEOUT,
+                'OpenRouter did not complete the request in time. Retry when the service is available.',
+                ex
+            )
         } catch (IOException ex) {
             throw new AiProviderException(
                 AiProviderErrorCategory.NETWORK,
@@ -134,7 +141,7 @@ class OpenRouterAdapter implements AiProvider {
         return content instanceof String ? (String) content : null
     }
 
-    private static AiProviderException translateStatus(int status) {
+    static AiProviderException translateStatus(int status) {
         if (status == 401 || status == 403) {
             return new AiProviderException(
                 AiProviderErrorCategory.AUTHENTICATION,
@@ -142,10 +149,12 @@ class OpenRouterAdapter implements AiProvider {
                 null
             )
         }
-        if (status == 429) {
+        if (status == 402 || status == 429) {
             return new AiProviderException(
                 AiProviderErrorCategory.QUOTA,
-                'OpenRouter rate limit or quota reached. Wait for the limit to reset or choose another available model.',
+                status == 402
+                    ? 'OpenRouter payment or credit limit reached. Add credits or check the account billing settings.'
+                    : 'OpenRouter rate limit or quota reached. Wait for the limit to reset or choose another available model.',
                 null
             )
         }

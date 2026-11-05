@@ -17,9 +17,9 @@ class OpenRouterAdapterTest {
         assertThat(payload.max_tokens).isEqualTo(OpenRouterAdapter.MAX_OUTPUT_TOKENS)
         assertThat(messages).hasSize(2)
         assertThat(messages[0].role).isEqualTo('system')
-        assertThat(messages[0].content).isEqualTo('system rules\n\ndeveloper rules')
+        assertThat(messages[0].content.toString()).isEqualTo('system rules\n\ndeveloper rules')
         assertThat(messages[1].role).isEqualTo('user')
-        assertThat(messages[1].content).isEqualTo('review this diff\n\nuntrusted diff')
+        assertThat(messages[1].content.toString()).isEqualTo('review this diff\n\nuntrusted diff')
     }
 
     @Test
@@ -43,5 +43,18 @@ class OpenRouterAdapterTest {
         assertThatThrownBy { new OpenRouterAdapter('key', ' ') }
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining('model')
+    }
+
+    @Test
+    void 'classifies payment and rate limits as quota failures'() {
+        assertThat(OpenRouterAdapter.translateStatus(402).category).isEqualTo(AiProviderErrorCategory.QUOTA)
+        assertThat(OpenRouterAdapter.translateStatus(402).userMessage).contains('credits')
+        assertThat(OpenRouterAdapter.translateStatus(429).category).isEqualTo(AiProviderErrorCategory.QUOTA)
+    }
+
+    @Test
+    void 'classifies request timeouts as timeout failures'() {
+        assertThat(OpenRouterAdapter.translateStatus(408).category).isEqualTo(AiProviderErrorCategory.TIMEOUT)
+        assertThat(OpenRouterAdapter.translateStatus(504).category).isEqualTo(AiProviderErrorCategory.TIMEOUT)
     }
 }
