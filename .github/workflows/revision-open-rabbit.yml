@@ -21,7 +21,7 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.draft == false && !startsWith(github.event.pull_request.head.ref, 'qa/')
     steps:
       - name: OpenRabbit review
-        uses: aryanbrite/openrabbit@a05dc7e11748a93a3518553c3de82a98eba9df0f # v0.8.7
+        uses: aryanbrite/openrabbit@0350c5ff79e6efb3ba92898a46a2e420ae1c526c # v0.8.7
         with:
           github_token: ${{ github.token }}
           llm_provider: openrouter
