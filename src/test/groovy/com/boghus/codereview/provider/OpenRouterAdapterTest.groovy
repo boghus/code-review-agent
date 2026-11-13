@@ -14,7 +14,8 @@ class OpenRouterAdapterTest {
 
         assertThat(payload.model).isEqualTo('openrouter/free')
         assertThat(payload.temperature).isEqualTo(0.1)
-        assertThat(payload.max_tokens).isEqualTo(OpenRouterAdapter.MAX_OUTPUT_TOKENS)
+        assertThat(payload.max_completion_tokens).isEqualTo(OpenRouterAdapter.MAX_OUTPUT_TOKENS)
+        assertThat(payload).doesNotContainKey('max_tokens')
         assertThat(payload.response_format).isEqualTo([type: 'json_object'])
         assertThat(payload.provider).isEqualTo([require_parameters: true])
         assertThat(messages).hasSize(2)
@@ -59,6 +60,36 @@ class OpenRouterAdapterTest {
         assertThat(diagnostics).contains('nativeFinishReason=max_tokens')
         assertThat(diagnostics).contains('contentType=null')
         assertThat(diagnostics).doesNotContain('private prompt', 'secret completion')
+    }
+
+    @Test
+    void 'includes token usage and reasoning tokens in empty response diagnostics'() {
+        Map<String, Object> response = [
+            usage: [
+                prompt_tokens: 1200,
+                completion_tokens: 8192,
+                total_tokens: 9392,
+                completion_tokens_details: [reasoning_tokens: 8192]
+            ],
+            choices: [[message: [content: ''], finish_reason: 'length']]
+        ]
+
+        String diagnostics = OpenRouterAdapter.describeResponse(response, 'openrouter/free')
+
+        assertThat(diagnostics).contains('promptTokens=1200')
+        assertThat(diagnostics).contains('completionTokens=8192')
+        assertThat(diagnostics).contains('reasoningTokens=8192')
+        assertThat(diagnostics).contains('totalTokens=9392')
+    }
+
+    @Test
+    void 'handles missing token usage in response diagnostics'() {
+        String diagnostics = OpenRouterAdapter.describeResponse([choices: []], 'openrouter/free')
+
+        assertThat(diagnostics).contains('promptTokens=n/a')
+        assertThat(diagnostics).contains('completionTokens=n/a')
+        assertThat(diagnostics).contains('reasoningTokens=n/a')
+        assertThat(diagnostics).contains('totalTokens=n/a')
     }
 
     @Test
