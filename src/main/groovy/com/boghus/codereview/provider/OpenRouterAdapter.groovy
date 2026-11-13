@@ -121,7 +121,7 @@ class OpenRouterAdapter implements AiProvider {
         return [
             model      : model,
             temperature: 0.1,
-            max_tokens : MAX_OUTPUT_TOKENS,
+            max_completion_tokens: MAX_OUTPUT_TOKENS,
             response_format: [type: 'json_object'],
             provider   : [require_parameters: true],
             messages   : [
@@ -162,6 +162,10 @@ class OpenRouterAdapter implements AiProvider {
         Object errorValue = payload.get('error')
         Map error = errorValue instanceof Map ? (Map) errorValue : [:]
         Object toolCalls = message.get('tool_calls')
+        Object usageValue = payload.get('usage')
+        Map usage = usageValue instanceof Map ? (Map) usageValue : [:]
+        Object completionDetailsValue = usage.get('completion_tokens_details')
+        Map completionDetails = completionDetailsValue instanceof Map ? (Map) completionDetailsValue : [:]
 
         List<String> details = [
             "requestId=${safeDiagnosticValue(payload.get('id'))}",
@@ -175,6 +179,10 @@ class OpenRouterAdapter implements AiProvider {
             "contentLength=${content instanceof String ? ((String) content).length() : 0}",
             "refusalPresent=${message.get('refusal') != null}",
             "toolCallCount=${toolCalls instanceof List ? ((List) toolCalls).size() : 0}",
+            "promptTokens=${safeDiagnosticValue(usage.get('prompt_tokens'))}",
+            "completionTokens=${safeDiagnosticValue(usage.get('completion_tokens'))}",
+            "reasoningTokens=${safeDiagnosticValue(completionDetails.get('reasoning_tokens'))}",
+            "totalTokens=${safeDiagnosticValue(usage.get('total_tokens'))}",
             "errorCode=${safeDiagnosticValue(error.get('code'))}",
             "errorMessage=${safeDiagnosticValue(error.get('message'))}"
         ]
