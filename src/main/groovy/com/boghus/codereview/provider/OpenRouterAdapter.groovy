@@ -183,7 +183,7 @@ class OpenRouterAdapter implements AiProvider {
 
     private static String safeDiagnosticValue(Object value) {
         if (value == null) return 'n/a'
-        String text = value.toString().replaceAll(/[\\r\\n\\t]/, ' ').replaceAll(/[^\\p{Print}]/, '?')
+        String text = value.toString().replaceAll(/[\r\n\t]/, ' ').replaceAll(/[^\p{Print}]/, '?')
         return text.take(160)
     }
 
