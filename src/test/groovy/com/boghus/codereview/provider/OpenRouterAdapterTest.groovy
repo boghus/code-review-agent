@@ -37,6 +37,45 @@ class OpenRouterAdapterTest {
         assertThat(OpenRouterAdapter.extractContent('not-json')).isNull()
     }
 
+
+    @Test
+    void 'describes empty OpenRouter responses without exposing prompt or completion content'() {
+        Map<String, Object> response = [
+            id: 'gen-123',
+            model: 'provider/model-free',
+            choices: [[
+                finish_reason: 'length',
+                native_finish_reason: 'max_tokens',
+                message: [role: 'assistant', content: null, refusal: null, tool_calls: []]
+            ]]
+        ]
+
+        String diagnostics = OpenRouterAdapter.describeResponse(response, 'openrouter/free')
+
+        assertThat(diagnostics).contains('requestId=gen-123')
+        assertThat(diagnostics).contains('requestedModel=openrouter/free')
+        assertThat(diagnostics).contains('returnedModel=provider/model-free')
+        assertThat(diagnostics).contains('finishReason=length')
+        assertThat(diagnostics).contains('nativeFinishReason=max_tokens')
+        assertThat(diagnostics).contains('contentType=null')
+        assertThat(diagnostics).doesNotContain('private prompt', 'secret completion')
+    }
+
+    @Test
+    void 'describes provider errors returned inside successful response payloads'() {
+        Map<String, Object> response = [
+            id: 'gen-456',
+            choices: [],
+            error: [code: 502, message: 'upstream unavailable']
+        ]
+
+        String diagnostics = OpenRouterAdapter.describeResponse(response, 'openrouter/free')
+
+        assertThat(diagnostics).contains('choiceCount=0')
+        assertThat(diagnostics).contains('errorCode=502')
+        assertThat(diagnostics).contains('errorMessage=upstream unavailable')
+    }
+
     @Test
     void 'rejects blank API key and model'() {
         assertThatThrownBy { new OpenRouterAdapter(' ', 'openrouter/free') }
