@@ -73,7 +73,7 @@ class OpenRouterAdapter implements AiProvider {
             } catch (Exception ex) {
                 throw new AiProviderException(
                     AiProviderErrorCategory.UNKNOWN,
-                    "OpenRouter returned an unreadable response (HTTP ${status}, bodyBytes=${response.body()?.getBytes('UTF-8')?.length ?: 0}).",
+                    'OpenRouter returned an unreadable response. Check the workflow log and retry.',
                     ex
                 )
             }
@@ -82,7 +82,7 @@ class OpenRouterAdapter implements AiProvider {
             if (!content?.trim()) {
                 throw new AiProviderException(
                     AiProviderErrorCategory.UNKNOWN,
-                    "OpenRouter returned no assistant content. ${describeResponse(parsed, model)}",
+                    "OpenRouter responded successfully but returned no content for model '${model}'.",
                     null
                 )
             }
@@ -141,58 +141,6 @@ class OpenRouterAdapter implements AiProvider {
         if (!(message instanceof Map)) return null
         Object content = ((Map) message).get('content')
         return content instanceof String ? (String) content : null
-    }
-
-    /**
-     * Produces a safe diagnostic for successful HTTP responses that contain no
-     * assistant text. Never logs prompts, completion content, or credentials.
-     */
-    static String describeResponse(Object response, String requestedModel) {
-        if (!(response instanceof Map)) {
-            return "responseType=${response == null ? 'null' : response.getClass().simpleName}, requestedModel=${safeDiagnosticValue(requestedModel)}"
-        }
-
-        Map payload = (Map) response
-        Object choices = payload.get('choices')
-        Object firstChoice = choices instanceof List && !((List) choices).isEmpty() ? ((List) choices).get(0) : null
-        Map choice = firstChoice instanceof Map ? (Map) firstChoice : [:]
-        Object messageValue = choice.get('message')
-        Map message = messageValue instanceof Map ? (Map) messageValue : [:]
-        Object content = message.get('content')
-        Object errorValue = payload.get('error')
-        Map error = errorValue instanceof Map ? (Map) errorValue : [:]
-        Object toolCalls = message.get('tool_calls')
-        Object usageValue = payload.get('usage')
-        Map usage = usageValue instanceof Map ? (Map) usageValue : [:]
-        Object completionDetailsValue = usage.get('completion_tokens_details')
-        Map completionDetails = completionDetailsValue instanceof Map ? (Map) completionDetailsValue : [:]
-
-        List<String> details = [
-            "requestId=${safeDiagnosticValue(payload.get('id'))}",
-            "requestedModel=${safeDiagnosticValue(requestedModel)}",
-            "returnedModel=${safeDiagnosticValue(payload.get('model'))}",
-            "finishReason=${safeDiagnosticValue(choice.get('finish_reason'))}",
-            "nativeFinishReason=${safeDiagnosticValue(choice.get('native_finish_reason'))}",
-            "choiceCount=${choices instanceof List ? ((List) choices).size() : 0}",
-            "messageKeys=${message.keySet().sort().join(',')}",
-            "contentType=${content == null ? 'null' : content.getClass().simpleName}",
-            "contentLength=${content instanceof String ? ((String) content).length() : 0}",
-            "refusalPresent=${message.get('refusal') != null}",
-            "toolCallCount=${toolCalls instanceof List ? ((List) toolCalls).size() : 0}",
-            "promptTokens=${safeDiagnosticValue(usage.get('prompt_tokens'))}",
-            "completionTokens=${safeDiagnosticValue(usage.get('completion_tokens'))}",
-            "reasoningTokens=${safeDiagnosticValue(completionDetails.get('reasoning_tokens'))}",
-            "totalTokens=${safeDiagnosticValue(usage.get('total_tokens'))}",
-            "errorCode=${safeDiagnosticValue(error.get('code'))}",
-            "errorMessage=${safeDiagnosticValue(error.get('message'))}"
-        ]
-        return details.join(', ')
-    }
-
-    private static String safeDiagnosticValue(Object value) {
-        if (value == null) return 'n/a'
-        String text = value.toString().replaceAll(/[\r\n\t]/, ' ').replaceAll(/[^\p{Print}]/, '?')
-        return text.take(160)
     }
 
     static AiProviderException translateStatus(int status) {
