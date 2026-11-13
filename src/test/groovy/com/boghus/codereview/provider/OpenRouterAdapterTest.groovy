@@ -15,6 +15,8 @@ class OpenRouterAdapterTest {
         assertThat(payload.model).isEqualTo('openrouter/free')
         assertThat(payload.temperature).isEqualTo(0.1)
         assertThat(payload.max_tokens).isEqualTo(OpenRouterAdapter.MAX_OUTPUT_TOKENS)
+        assertThat(payload.response_format).isEqualTo([type: 'json_object'])
+        assertThat(payload.provider).isEqualTo([require_parameters: true])
         assertThat(messages).hasSize(2)
         assertThat(messages[0].role).isEqualTo('system')
         assertThat(messages[0].content.toString()).isEqualTo('system rules\n\ndeveloper rules')
