@@ -122,6 +122,8 @@ class OpenRouterAdapter implements AiProvider {
             model      : model,
             temperature: 0.1,
             max_tokens : MAX_OUTPUT_TOKENS,
+            response_format: [type: 'json_object'],
+            provider   : [require_parameters: true],
             messages   : [
                 [role: 'system', content: "${request.systemInstructions}\n\n${request.developerInstructions}"],
                 [role: 'user', content: "${request.prompt}\n\n${request.untrustedRepositoryContent}"]
