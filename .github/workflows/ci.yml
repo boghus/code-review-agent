@@ -15,7 +15,7 @@ permissions:
   issues: write
 
 env:
-  SELF_REVIEW_GEMINI_MODEL: gemini-3.8-flash
+  SELF_REVIEW_OPENROUTER_MODEL: openrouter/free
 
 jobs:
   context:
@@ -148,8 +148,8 @@ jobs:
         shell: bash
         run: |
           echo "Pipeline profile: ${{ needs.policy.outputs.run_self_review == 'true' && 'qa/development policy' || 'disabled' }}"
-          echo "Code Review Agent self-review provider: gemini"
-          echo "Code Review Agent self-review model: ${SELF_REVIEW_GEMINI_MODEL}"
+          echo "Code Review Agent self-review provider: openrouter"
+          echo "Code Review Agent self-review model: ${SELF_REVIEW_OPENROUTER_MODEL}"
           echo "Code Review Agent self-review language: es"
 
       # Run the action from this PR instead of a published tag. This makes
@@ -157,9 +157,9 @@ jobs:
       - name: Run self-review
         uses: ./
         with:
-          api-key: ${{ secrets.GEMINI_API_KEY }}
-          model: ${{ env.SELF_REVIEW_GEMINI_MODEL }}
-          provider: gemini
+          api-key: ${{ secrets.OPENROUTER_API_KEY }}
+          model: ${{ env.SELF_REVIEW_OPENROUTER_MODEL }}
+          provider: openrouter
           language: es
           github-token: ${{ github.token }}
 
