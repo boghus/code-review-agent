@@ -38,7 +38,6 @@ class OpenRouterAdapterTest {
         assertThat(OpenRouterAdapter.extractContent('not-json')).isNull()
     }
 
-
     @Test
     void 'rejects blank API key and model'() {
         assertThatThrownBy { new OpenRouterAdapter(' ', 'openrouter/free') }
