@@ -43,24 +43,51 @@ class InputParserTest {
     }
 
     @Test
-    void 'parses Spanish language'() {
+    void 'parses supported language codes case insensitively and trims whitespace'() {
         assertThat(InputParser.parseLanguage('es')).isEqualTo(ReviewLanguage.SPANISH)
-    }
-
-    @Test
-    void 'parses English language'() {
-        assertThat(InputParser.parseLanguage('en')).isEqualTo(ReviewLanguage.ENGLISH)
-    }
-
-    @Test
-    void 'parses language case insensitively and trims whitespace'() {
         assertThat(InputParser.parseLanguage(' ES ')).isEqualTo(ReviewLanguage.SPANISH)
+        assertThat(InputParser.parseLanguage('en')).isEqualTo(ReviewLanguage.ENGLISH)
+        assertThat(InputParser.parseLanguage(' EN ')).isEqualTo(ReviewLanguage.ENGLISH)
     }
 
     @Test
-    void 'falls back to English for blank or invalid language'() {
-        assertThat(InputParser.parseLanguage(null)).isEqualTo(ReviewLanguage.ENGLISH)
-        assertThat(InputParser.parseLanguage('')).isEqualTo(ReviewLanguage.ENGLISH)
+    void 'uses English without warning when language is omitted'() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream()
+        PrintStream originalOut = System.out
+        try {
+            System.setOut(new PrintStream(output, true, 'UTF-8'))
+
+            assertThat(InputParser.parseLanguage(null)).isEqualTo(ReviewLanguage.ENGLISH)
+            assertThat(InputParser.parseLanguage('')).isEqualTo(ReviewLanguage.ENGLISH)
+            assertThat(InputParser.parseLanguage('   ')).isEqualTo(ReviewLanguage.ENGLISH)
+        } finally {
+            System.setOut(originalOut)
+        }
+
+        assertThat(output.toString('UTF-8')).isEmpty()
+    }
+
+    @Test
+    void 'falls back to English and warns for unsupported language names'() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream()
+        PrintStream originalOut = System.out
+        try {
+            System.setOut(new PrintStream(output, true, 'UTF-8'))
+
+            assertThat(InputParser.parseLanguage('spanish')).isEqualTo(ReviewLanguage.ENGLISH)
+            assertThat(InputParser.parseLanguage('espanol')).isEqualTo(ReviewLanguage.ENGLISH)
+        } finally {
+            System.setOut(originalOut)
+        }
+
+        String warning = output.toString('UTF-8')
+        assertThat(warning).contains("⚠️ Idioma no soportado 'spanish'. Se utilizará inglés como alternativa.")
+        assertThat(warning).contains("⚠️ Idioma no soportado 'espanol'. Se utilizará inglés como alternativa.")
+    }
+
+    @Test
+    void 'falls back to English for unknown language codes'() {
         assertThat(InputParser.parseLanguage('fr')).isEqualTo(ReviewLanguage.ENGLISH)
+        assertThat(InputParser.parseLanguage('klingon')).isEqualTo(ReviewLanguage.ENGLISH)
     }
 }

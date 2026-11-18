@@ -409,7 +409,7 @@ This makes the review engine independent from the underlying model provider.
 | `api-key` | ✅ | — | AI provider API key |
 | `model` | | `gemini-3.8-flash` | Model identifier |
 | `provider` | | `gemini` | AI provider |
-| `language` | | `en` | Review language |
+| `language` | | `en` | Review language. Supported values: `en` (English) and `es` (Spanish). Other non-empty values fall back to English with a warning. |
 | `rules-path` | | Built-in rules | Optional repository-relative Markdown rules file. Omit it or set `''` to use the built-in rules. A configured file replaces the defaults; a missing or invalid path is an error. |
 | `diff-path` | | `cra-pr.diff` | Diff file |
 | `output-path` | | `cra-review.md` | Review output |

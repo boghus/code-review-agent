@@ -19,7 +19,7 @@ inputs:
     required: false
     default: 'gemini'
   language:
-    description: 'Language for the generated review. Supported values: en, es. Invalid values default to en.'
+    description: 'Language for the generated review. Supported values: en (English), es (Spanish). Unsupported non-empty values warn and default to en.'
     required: false
     default: 'en'
   rules-path:
