@@ -31,7 +31,24 @@ class InputParser {
         }
     }
 
+    /**
+     * Resolves the externally supplied language to a supported enum value.
+     * Only stable language codes are accepted; arbitrary labels never reach
+     * the prompt. Missing values silently use English, while unsupported
+     * non-blank values produce a warning and also fall back to English.
+     */
     static ReviewLanguage parseLanguage(String raw) {
-        return raw?.trim()?.equalsIgnoreCase('es') ? ReviewLanguage.SPANISH : ReviewLanguage.ENGLISH
+        String value = raw?.trim()?.toLowerCase(Locale.ROOT)
+        if (!value) return ReviewLanguage.ENGLISH
+
+        ReviewLanguage language = ReviewLanguage.fromCode(value)
+        if (language != null) return language
+
+        String displayedValue = value.replaceAll('[\\r\\n\\t]', ' ')
+        if (displayedValue.length() > 80) {
+            displayedValue = displayedValue.substring(0, 80) + '...'
+        }
+        println "⚠️ Idioma no soportado '${displayedValue}'. Se utilizará inglés como alternativa."
+        return ReviewLanguage.ENGLISH
     }
 }
