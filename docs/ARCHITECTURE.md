@@ -21,8 +21,10 @@ action.yml steps
    │                         │       └── InputParser.parsePositiveInt()
    │                         ├── DiffAnalyzer.parse()
    │                         ├── ReviewPromptBuilder.build()
-   │                         ├── AiProviderFactory.create('gemini', apiKey, model)
-   │                         ├── GeminiAdapter.review(prompt)
+   │                         ├── AiProviderFactory.create(primary provider)
+   │                         ├── AiProviderFallback.review(primary, backup, request)
+   │                         │       ├── primary.review(request)
+   │                         │       └── backup.review(request) on retryable availability failures
    │                         └── ReviewReportWriter.write(output)
    └── peter-evans/find-comment + create-or-update-comment
 ```
@@ -51,7 +53,8 @@ See [`AI_CONTEXT.md`](AI_CONTEXT.md) for the rules intended to be consumed by AI
 
 ## Contracts
 
-- `AiProvider` — `String review(String prompt)`. Stateless.
+- `AiProvider` — provider-neutral review contract. Stateless.
+- `AiProviderFallback` — retries with an optional backup only for quota, timeout, network, and temporary-unavailability failures.
 - `ActionInputs` — reads `CRA_*` environment variables and exposes typed configuration; parsing/validation belongs to `InputParser`.
 - `InputParser` — owns parsing and validation rules for supported input types.
 - `ReviewReportWriter` — every body starts with the marker

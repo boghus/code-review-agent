@@ -1,5 +1,6 @@
 package com.boghus.codereview.provider
 
+import com.fasterxml.jackson.core.JsonProcessingException
 import com.google.genai.Client
 import com.google.genai.errors.ApiException
 import com.google.genai.types.Content
@@ -88,11 +89,13 @@ class GeminiAdapter implements AiProvider {
         } catch (ApiException ex) {
             throw translate(ex)
         } catch (RuntimeException ex) {
-            throw new AiProviderException(
-                AiProviderErrorCategory.UNKNOWN,
-                "Gemini could not complete the review with **${model}**. Check the workflow log for the technical error and retry.",
-                ex
-            )
+            AiProviderErrorCategory category = categorizeRuntimeException(ex)
+            String message = category == AiProviderErrorCategory.TIMEOUT
+                ? "Gemini did not complete the review with **${model}** in time. Retry when the provider is available."
+                : category == AiProviderErrorCategory.NETWORK
+                    ? "Gemini could not be reached. Check the workflow log and retry."
+                    : "Gemini could not complete the review with **${model}**. Check the workflow log for the technical error and retry."
+            throw new AiProviderException(category, message, ex)
         }
     }
 
@@ -124,15 +127,50 @@ ${request.untrustedRepositoryContent}"""
         } else if (isAuthError(ex)) {
             category = AiProviderErrorCategory.AUTHENTICATION
             message = "Authentication failed for **${safeModelFor(ex)}**. Check that the API key provided to the `api-key` input is valid and has access to this model."
+        } else if (hasCause(ex, java.net.http.HttpTimeoutException.class) || hasCause(ex, java.net.SocketTimeoutException.class) || extractHttpStatus(ex) == 408) {
+            category = AiProviderErrorCategory.TIMEOUT
+            message = "Gemini did not complete the review with **${safeModelFor(ex)}** in time. Retry when the provider is available."
+        } else if (hasCause(ex, JsonProcessingException.class)) {
+            category = AiProviderErrorCategory.UNKNOWN
+            message = "Gemini returned a response that could not be processed for **${safeModelFor(ex)}**. Check the workflow log for the technical error."
+        } else if (hasCause(ex, java.io.IOException.class)) {
+            category = AiProviderErrorCategory.NETWORK
+            message = 'Gemini could not be reached. Check the workflow log and retry.'
+        } else if (extractHttpStatus(ex) >= 500 && extractHttpStatus(ex) <= 599) {
+            category = AiProviderErrorCategory.UNAVAILABLE
+            message = "Gemini is temporarily unavailable (HTTP ${extractHttpStatus(ex)}). The review can be retried with a backup provider."
         } else {
             category = AiProviderErrorCategory.UNKNOWN
-            message = "Gemini could not complete the review with **${safeModelFor(ex)}**. Check the workflow log for the technical error and retry when the provider is reachable again."
+            message = "Gemini could not complete the review with **${safeModelFor(ex)}**. Check the workflow log for the technical error and retry."
         }
         return new AiProviderException(category, message, ex)
     }
 
     private static String safeModelFor(ApiException ex) {
         return 'gemini'
+    }
+
+    static AiProviderErrorCategory categorizeRuntimeException(Throwable exception) {
+        if (hasCause(exception, java.net.http.HttpTimeoutException.class) ||
+            hasCause(exception, java.net.SocketTimeoutException.class)) {
+            return AiProviderErrorCategory.TIMEOUT
+        }
+        if (hasCause(exception, JsonProcessingException.class)) {
+            return AiProviderErrorCategory.UNKNOWN
+        }
+        if (hasCause(exception, java.io.IOException.class)) {
+            return AiProviderErrorCategory.NETWORK
+        }
+        return AiProviderErrorCategory.UNKNOWN
+    }
+
+    private static boolean hasCause(Throwable exception, Class<? extends Throwable> causeType) {
+        Throwable current = exception
+        while (current != null) {
+            if (causeType.isInstance(current)) return true
+            current = current.cause
+        }
+        return false
     }
 
     static String categorizeError(ApiException exception, String model) {

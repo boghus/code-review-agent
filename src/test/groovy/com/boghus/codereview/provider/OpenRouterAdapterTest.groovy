@@ -60,4 +60,11 @@ class OpenRouterAdapterTest {
         assertThat(OpenRouterAdapter.translateStatus(408).category).isEqualTo(AiProviderErrorCategory.TIMEOUT)
         assertThat(OpenRouterAdapter.translateStatus(504).category).isEqualTo(AiProviderErrorCategory.TIMEOUT)
     }
+
+    @Test
+    void 'classifies server errors as temporary unavailability'() {
+        assertThat(OpenRouterAdapter.translateStatus(500).category).isEqualTo(AiProviderErrorCategory.UNAVAILABLE)
+        assertThat(OpenRouterAdapter.translateStatus(502).category).isEqualTo(AiProviderErrorCategory.UNAVAILABLE)
+        assertThat(OpenRouterAdapter.translateStatus(503).category).isEqualTo(AiProviderErrorCategory.UNAVAILABLE)
+    }
 }

@@ -172,6 +172,13 @@ class OpenRouterAdapter implements AiProvider {
                 null
             )
         }
+        if (status >= 500 && status <= 599) {
+            return new AiProviderException(
+                AiProviderErrorCategory.UNAVAILABLE,
+                "OpenRouter is temporarily unavailable (HTTP ${status}). The review can be retried with a backup provider.",
+                null
+            )
+        }
         return new AiProviderException(
             AiProviderErrorCategory.UNKNOWN,
             "OpenRouter could not complete the review (HTTP ${status}). Check the workflow log and retry.",

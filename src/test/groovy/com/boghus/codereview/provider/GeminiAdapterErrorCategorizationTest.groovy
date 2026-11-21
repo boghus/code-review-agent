@@ -55,7 +55,28 @@ class GeminiAdapterErrorCategorizationTest {
         assertThat(category)
             .doesNotContain('account=foo')
             .doesNotContain('very specific internal detail')
-            .contains('could not complete')
+            .contains('temporarily unavailable')
+    }
+
+    @Test
+    void 'classifies timeout and network causes for fallback'() {
+        assertThat(GeminiAdapter.categorizeRuntimeException(
+            new RuntimeException(new java.net.SocketTimeoutException('timed out'))
+        )).isEqualTo(AiProviderErrorCategory.TIMEOUT)
+        assertThat(GeminiAdapter.categorizeRuntimeException(
+            new RuntimeException(new java.io.IOException('connection reset'))
+        )).isEqualTo(AiProviderErrorCategory.NETWORK)
+        assertThat(GeminiAdapter.categorizeRuntimeException(
+            new RuntimeException('unexpected')
+        )).isEqualTo(AiProviderErrorCategory.UNKNOWN)
+    }
+
+    @Test
+    void 'does not classify JSON processing failures as network errors'() {
+        com.fasterxml.jackson.core.JsonProcessingException invalidJson =
+            new com.fasterxml.jackson.core.JsonProcessingException('invalid JSON') {}
+        assertThat(GeminiAdapter.categorizeRuntimeException(new RuntimeException(invalidJson)))
+            .isEqualTo(AiProviderErrorCategory.UNKNOWN)
     }
 
     @Test

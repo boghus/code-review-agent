@@ -14,6 +14,21 @@ import groovy.transform.CompileStatic
 class InputParser {
 
     /**
+     * Validates the optional backup provider as an all-or-nothing configuration.
+     * An entirely omitted backup disables fallback; partial configuration is an error.
+     */
+    static void validateBackupConfiguration(String apiKey, String provider, String model) {
+        boolean anyConfigured = apiKey?.trim() || provider?.trim() || model?.trim()
+        if (!anyConfigured) return
+
+        if (!apiKey?.trim() || !provider?.trim() || !model?.trim()) {
+            throw new IllegalArgumentException(
+                'The backup provider configuration is incomplete. Configure `backup-api-key`, `backup-provider`, and `backup-model` together.'
+            )
+        }
+    }
+
+    /**
      * Parses a positive integer, returning the supplied fallback when the
      * input is blank, malformed, zero, or negative.
      *

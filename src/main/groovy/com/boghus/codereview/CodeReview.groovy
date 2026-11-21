@@ -1,10 +1,12 @@
 package com.boghus.codereview
 
 import com.boghus.codereview.github.ActionInputs
+import com.boghus.codereview.github.InputParser
 import com.boghus.codereview.github.TrustedRulesLoader
 import com.boghus.codereview.output.ReviewReportWriter
 import com.boghus.codereview.provider.AiProvider
 import com.boghus.codereview.provider.AiProviderException
+import com.boghus.codereview.provider.AiProviderFallback
 import com.boghus.codereview.provider.AiProviderFactory
 import com.boghus.codereview.provider.GeminiAdapter
 import com.boghus.codereview.provider.ReviewRequest
@@ -122,34 +124,46 @@ class CodeReview {
             return
         }
 
+        AiProvider backupProvider = null
+        try {
+            InputParser.validateBackupConfiguration(
+                inputs.backupApiKey,
+                inputs.backupProvider,
+                inputs.backupModel
+            )
+            if (inputs.backupApiKey?.trim()) {
+                backupProvider = AiProviderFactory.create(inputs.backupProvider, inputs.backupApiKey, inputs.backupModel)
+            }
+        } catch (IllegalArgumentException ex) {
+            writer.writeMisconfigured(inputs.outputPath, ex.message)
+            println "Code Review Agent: invalid backup provider configuration: ${RuntimeErrorSanitizer.sanitize(ex)}"
+            return
+        }
+
         ReviewPromptBuilder promptBuilder = new ReviewPromptBuilder()
         ReviewRequest request = promptBuilder.buildRequest(rules, diff, inputs.language)
 
-        ReviewTrace trace = ReviewTrace.create(
-            inputs.repository,
-            inputs.pullRequest,
-            inputs.baseSha,
-            inputs.headSha,
-            analyzer,
-            diff,
-            rules,
-            request,
-            inputs.model,
-            provider.type() == com.boghus.codereview.provider.AiProviderType.GEMINI ? GeminiAdapter.MAX_OUTPUT_TOKENS : 0
-        )
-        trace.log()
-
+        AiProvider selectedProvider = provider
+        String selectedModel = inputs.model
         try {
-            String text = provider.review(request)
+            AiProviderFallback.ReviewResult result = AiProviderFallback.review(provider, backupProvider, request)
+            selectedProvider = result.provider
+            selectedModel = result.fallbackUsed ? inputs.backupModel : inputs.model
+            logTrace(inputs, analyzer, diff, rules, request, selectedProvider, selectedModel)
             writer.writeAiGenerated(
                 inputs.outputPath,
-                ReviewResponseJsonParser.parse(text),
+                ReviewResponseJsonParser.parse(result.response),
                 inputs.language
             )
-            println "Code Review Agent: review written to ${inputs.outputPath} using ${provider.type().configName}/${inputs.model}."
+            println "Code Review Agent: review written to ${inputs.outputPath} using ${selectedProvider.type().configName}/${selectedModel}."
         } catch (AiProviderException ex) {
+            if (ex.suppressed.length > 0 && backupProvider != null) {
+                selectedProvider = backupProvider
+                selectedModel = inputs.backupModel
+            }
+            logTrace(inputs, analyzer, diff, rules, request, selectedProvider, selectedModel)
             writer.writeFailure(inputs.outputPath, ex.userMessage)
-            println "Code Review Agent: ${provider.type().configName} failure [${ex.category}]: ${RuntimeErrorSanitizer.sanitize(ex.cause ?: ex)}"
+            println "Code Review Agent: ${selectedProvider.type().configName} failure [${ex.category}]: ${RuntimeErrorSanitizer.sanitize(ex.cause ?: ex)}"
         } catch (JsonException ex) {
             writer.writeFailure(
                 inputs.outputPath,
@@ -163,9 +177,35 @@ class CodeReview {
             )
             println "Code Review Agent: invalid JSON review response: ${RuntimeErrorSanitizer.sanitize(ex)}"
         } catch (Exception ex) {
-            String userMessage = "The AI provider (**${provider.type().configName}**, model `${inputs.model}`) failed unexpectedly. Check the workflow log for the technical error and retry."
+            String userMessage = "The AI provider (**${selectedProvider.type().configName}**, model `${selectedModel}`) failed unexpectedly. Check the workflow log for the technical error and retry."
             writer.writeFailure(inputs.outputPath, userMessage)
             println "Code Review Agent: unexpected failure: ${RuntimeErrorSanitizer.sanitize(ex)}"
         }
+    }
+
+    private static void logTrace(
+        ActionInputs inputs,
+        DiffAnalyzer analyzer,
+        String diff,
+        String rules,
+        ReviewRequest request,
+        AiProvider selectedProvider,
+        String selectedModel
+    ) {
+        int maxOutputTokens = selectedProvider.type() == com.boghus.codereview.provider.AiProviderType.GEMINI
+            ? GeminiAdapter.MAX_OUTPUT_TOKENS
+            : 0
+        ReviewTrace.create(
+            inputs.repository,
+            inputs.pullRequest,
+            inputs.baseSha,
+            inputs.headSha,
+            analyzer,
+            diff,
+            rules,
+            request,
+            selectedModel,
+            maxOutputTokens
+        ).log()
     }
 }

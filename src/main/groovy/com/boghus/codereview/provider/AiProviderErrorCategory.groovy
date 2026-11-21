@@ -11,6 +11,7 @@ enum AiProviderErrorCategory {
     QUOTA,
     TIMEOUT,
     NETWORK,
+    UNAVAILABLE,
     INVALID_REQUEST,
     UNKNOWN
 }

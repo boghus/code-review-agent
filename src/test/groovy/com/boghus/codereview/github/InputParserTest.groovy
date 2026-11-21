@@ -4,6 +4,7 @@ import com.boghus.codereview.review.ReviewLanguage
 import org.junit.jupiter.api.Test
 
 import static org.assertj.core.api.Assertions.assertThat
+import static org.assertj.core.api.Assertions.assertThatThrownBy
 
 class InputParserTest {
 
@@ -40,6 +41,26 @@ class InputParserTest {
     void 'does not truncate or overflow the parsed value'() {
         assertThat(InputParser.parsePositiveInt('2147483647', 100)).isEqualTo(Integer.MAX_VALUE)
         assertThat(InputParser.parsePositiveInt('2147483648', 100)).isEqualTo(100)
+    }
+
+    @Test
+    void 'accepts an omitted backup provider configuration'() {
+        InputParser.validateBackupConfiguration(null, '', '  ')
+    }
+
+    @Test
+    void 'rejects incomplete backup provider configuration'() {
+        assertThatThrownBy {
+            InputParser.validateBackupConfiguration('secret', 'openrouter', '')
+        }.isInstanceOf(IllegalArgumentException)
+            .hasMessageContaining('backup-api-key')
+            .hasMessageContaining('backup-provider')
+            .hasMessageContaining('backup-model')
+    }
+
+    @Test
+    void 'accepts complete backup provider configuration'() {
+        InputParser.validateBackupConfiguration('secret', 'openrouter', 'openrouter/free')
     }
 
     @Test

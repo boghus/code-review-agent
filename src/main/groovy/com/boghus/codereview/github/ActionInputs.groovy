@@ -24,6 +24,9 @@ class ActionInputs {
     String apiKey
     String provider
     String model
+    String backupApiKey
+    String backupProvider
+    String backupModel
     String rulesPath
     String diffPath
     String outputPath
@@ -41,6 +44,9 @@ class ActionInputs {
         inputs.apiKey = env.CRA_API_KEY
         inputs.provider = env.CRA_PROVIDER ?: DEFAULT_PROVIDER
         inputs.model = env.CRA_MODEL ?: DEFAULT_MODEL
+        inputs.backupApiKey = env.CRA_BACKUP_API_KEY
+        inputs.backupProvider = env.CRA_BACKUP_PROVIDER
+        inputs.backupModel = env.CRA_BACKUP_MODEL
         // An omitted or empty value disables repository-specific rules.
         inputs.rulesPath = env.CRA_RULES_PATH ?: ''
         inputs.diffPath = env.CRA_DIFF_PATH ?: DEFAULT_DIFF_PATH
