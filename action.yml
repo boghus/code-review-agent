@@ -18,6 +18,15 @@ inputs:
     description: 'AI provider implementation: "gemini" or "openrouter".'
     required: false
     default: 'gemini'
+  backup-api-key:
+    description: 'Optional API key for the backup AI provider. Configure together with backup-provider and backup-model.'
+    required: false
+  backup-provider:
+    description: 'Optional backup AI provider implementation: "gemini" or "openrouter".'
+    required: false
+  backup-model:
+    description: 'Optional model identifier for the backup AI provider.'
+    required: false
   language:
     description: 'Language for the generated review. Supported values: en (English), es (Spanish). Unsupported non-empty values warn and default to en.'
     required: false
@@ -110,6 +119,9 @@ runs:
         CRA_API_KEY: ${{ inputs.api-key }}
         CRA_PROVIDER: ${{ inputs.provider }}
         CRA_MODEL: ${{ inputs.model }}
+        CRA_BACKUP_API_KEY: ${{ inputs.backup-api-key }}
+        CRA_BACKUP_PROVIDER: ${{ inputs.backup-provider }}
+        CRA_BACKUP_MODEL: ${{ inputs.backup-model }}
         CRA_LANGUAGE: ${{ inputs.language }}
         CRA_RULES_PATH: ${{ steps.resolve-paths.outputs.rules-relative }}
         CRA_DIFF_PATH: ${{ steps.resolve-paths.outputs.diff-path }}

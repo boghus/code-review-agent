@@ -78,6 +78,23 @@ Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey
 
 The generic `api-key` input is reused, and the GitHub token remains separate from the AI provider. The OpenRouter adapter uses the JDK HTTP client, so no additional provider SDK dependency is needed.
 
+### Configure a backup provider
+
+Keep Gemini as the primary provider and configure an optional backup independently. The existing primary inputs remain unchanged:
+
+```yaml
+- uses: boghus/code-review-agent@v1
+  with:
+    api-key: ${{ secrets.MY_AI_KEY }}
+    provider: gemini
+    model: gemini-3.8-flash
+    backup-api-key: ${{ secrets.OPENROUTER_API_KEY }}
+    backup-provider: openrouter
+    backup-model: openrouter/free
+```
+
+The backup is attempted only when the primary provider fails with a retryable availability category: quota/rate limit, timeout, network failure, or temporary server unavailability. Authentication, invalid request, unsupported provider, and other non-retryable errors are reported without silently switching providers. Configure all three backup inputs together; omit all of them to keep the current single-provider behavior.
+
 Open a PR and let Code Review Agent by boghus review it.
 
 That's the whole integration.
@@ -408,7 +425,10 @@ This makes the review engine independent from the underlying model provider.
 |---|---:|---|---|
 | `api-key` | ✅ | — | AI provider API key |
 | `model` | | `gemini-3.8-flash` | Model identifier |
-| `provider` | | `gemini` | AI provider |
+| `provider` | | `gemini` | Primary AI provider |
+| `backup-api-key` | | — | Optional API key for the backup provider; configure with the other backup inputs |
+| `backup-provider` | | — | Optional backup AI provider |
+| `backup-model` | | — | Optional model identifier for the backup provider |
 | `language` | | `en` | Review language. Supported values: `en` (English) and `es` (Spanish). Other non-empty values fall back to English with a warning. |
 | `rules-path` | | Built-in rules | Optional repository-relative Markdown rules file. Omit it or set `''` to use the built-in rules. A configured file replaces the defaults; a missing or invalid path is an error. |
 | `diff-path` | | `cra-pr.diff` | Diff file |

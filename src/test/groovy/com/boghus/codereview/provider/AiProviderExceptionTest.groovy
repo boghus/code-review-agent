@@ -28,6 +28,7 @@ class AiProviderExceptionTest {
             AiProviderErrorCategory.QUOTA,
             AiProviderErrorCategory.TIMEOUT,
             AiProviderErrorCategory.NETWORK,
+            AiProviderErrorCategory.UNAVAILABLE,
             AiProviderErrorCategory.INVALID_REQUEST,
             AiProviderErrorCategory.UNKNOWN
         )

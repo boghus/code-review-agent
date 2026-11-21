@@ -27,6 +27,9 @@ class ActionInputsTest {
             CRA_API_KEY       : 'secret',
             CRA_PROVIDER      : 'gemini',
             CRA_MODEL         : 'gemini-test',
+            CRA_BACKUP_API_KEY: 'backup-secret',
+            CRA_BACKUP_PROVIDER: 'openrouter',
+            CRA_BACKUP_MODEL  : 'openrouter/free',
             CRA_LANGUAGE     : 'es',
             CRA_RULES_PATH    : '/tmp/rules.md',
             CRA_BASE_SHA      : 'abc123',
@@ -40,6 +43,9 @@ class ActionInputsTest {
 
         assertThat(inputs.apiKey).isEqualTo('secret')
         assertThat(inputs.model).isEqualTo('gemini-test')
+        assertThat(inputs.backupApiKey).isEqualTo('backup-secret')
+        assertThat(inputs.backupProvider).isEqualTo('openrouter')
+        assertThat(inputs.backupModel).isEqualTo('openrouter/free')
         assertThat(inputs.language).isEqualTo(ReviewLanguage.SPANISH)
         assertThat(inputs.rulesPath).isEqualTo('/tmp/rules.md')
         assertThat(inputs.baseSha).isEqualTo('abc123')
